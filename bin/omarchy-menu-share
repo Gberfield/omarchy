@@ -60,7 +60,19 @@ fi
 if [[ $MODE == "text" ]]; then
   # LocalSend checks special flags before consuming the --text value.
   # A leading space protects messages like "--share"; LocalSend trims it.
-  systemd-run --user --quiet --collect localsend --text " $text" || status=$?
+  # Successful scheduling does not mean that LocalSend itself can start.
+  # Keep its exit check in the service; disable systemd's environment expansion
+  # and pass the message as a literal argument.
+  # shellcheck disable=SC2016 # The service shell expands its own positional argument and status.
+  systemd-run --user --quiet --collect --expand-environment=no /bin/bash -c '
+    if localsend --text "$1"; then
+      exit 0
+    else
+      status=$?
+      omarchy-notification-send -g "" -u critical "Could not share text" "LocalSend exited with an error"
+      exit "$status"
+    fi
+  ' omarchy-share-text " $text" || status=$?
   if ((${status:-0} > 0)); then
     omarchy-notification-send -g "" -u critical "Could not share text" "LocalSend did not open"
     exit "$status"
