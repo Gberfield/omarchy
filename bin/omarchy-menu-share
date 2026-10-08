@@ -63,8 +63,9 @@ if [[ $MODE == "text" ]]; then
   # Successful scheduling does not mean that LocalSend itself can start.
   # Keep its exit check in the service; disable systemd's environment expansion
   # and pass the message as a literal argument.
+  # A fixed description keeps message contents out of systemd's journal.
   # shellcheck disable=SC2016 # The service shell expands its own positional argument and status.
-  systemd-run --user --quiet --collect --expand-environment=no /bin/bash -c '
+  systemd-run --user --quiet --collect --expand-environment=no --description="Share text with LocalSend" /bin/bash -c '
     if localsend --text "$1"; then
       exit 0
     else

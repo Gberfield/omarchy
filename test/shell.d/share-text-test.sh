@@ -112,6 +112,26 @@ sys.exit(int(os.environ.get('SHARE_TEST_LOCALSEND_STATUS', '0')))
     self.assertEqual(self.share('text', '--share').returncode, 0)
     self.assertEqual(json.loads(self.localsend_calls.read_text()), ['--text', ' --share'])
 
+  def test_service_description_does_not_disclose_direct_or_composed_text(self):
+    direct = 'synthetic Wi-Fi password: café\n${HOME}'
+    composed = 'synthetic OTP: 123456\n$(touch unwanted)'
+    self.environment['SHARE_TEST_MESSAGE'] = composed
+    observed_descriptions = []
+    for arguments, message in [(('text', direct), direct), (('text',), composed)]:
+      with self.subTest(arguments=arguments):
+        result = self.share(*arguments)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = json.loads(self.calls.read_text())
+        descriptions = [arg.split('=', 1)[1] for arg in args[:args.index('/bin/bash')]
+                        if arg.startswith('--description=')]
+        self.assertEqual(len(descriptions), 1, 'systemd would log the full command without a description')
+        self.assertTrue(descriptions[0].strip())
+        self.assertNotIn(message, descriptions[0])
+        self.assertEqual(json.loads(self.localsend_calls.read_text()), ['--text', ' ' + message])
+        observed_descriptions.append(descriptions[0])
+    self.assertEqual(observed_descriptions[0], observed_descriptions[1],
+                     'Service description must not vary with message contents')
+
   def test_launch_failure_propagates(self):
     self.environment['SHARE_TEST_LAUNCH_STATUS'] = '1'
     self.assertNotEqual(self.share('text', 'hello').returncode, 0)
