@@ -70,6 +70,17 @@ sys.exit(int(os.environ.get('SHARE_TEST_LOCALSEND_STATUS', '0')))
     # A PATH-selected Python must never replace Arch's GI-enabled interpreter.
     self.stub('python3', '#!/bin/bash\nexit 99\n')
     self.stub('omarchy-notification-send', '#!/bin/bash\nprintf "%s\\n" "$@" > "$SHARE_TEST_NOTIFICATION"\n')
+    self.stub('wl-paste', f'''#!{sys.executable}
+import os, sys
+sys.stdout.write('x' * int(os.environ.get('SHARE_TEST_CLIPBOARD_SIZE', '0')) + os.environ.get('SHARE_TEST_CLIPBOARD', ''))
+sys.exit(int(os.environ.get('SHARE_TEST_CLIPBOARD_STATUS', '0')))
+''')
+    self.stub('mktemp', '#!/bin/bash\nexit 99\n')
+    self.stub('omarchy-file-select', f'''#!{sys.executable}
+import os, sys
+sys.stdout.write(os.environ.get('SHARE_TEST_PICKED', ''))
+sys.exit(int(os.environ.get('SHARE_TEST_PICKER_STATUS', '0')))
+''')
 
   def stub(self, name, text):
     path = self.directory / name
@@ -155,6 +166,71 @@ sys.exit(int(os.environ.get('SHARE_TEST_LOCALSEND_STATUS', '0')))
     for mode in ('file', 'folder'):
       self.assertEqual(self.share(mode, '/a path').returncode, 0)
       self.assertEqual(json.loads(self.localsend_calls.read_text()), ['--headless', 'send', '/a path'])
+
+  def test_clipboard_is_native_literal_text_without_temporary_file(self):
+    message = '--share café\n$(touch unwanted); "quoted" ${HOME}'
+    self.environment['SHARE_TEST_CLIPBOARD'] = message + '\n\n'
+    result = self.share('clipboard')
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertEqual(json.loads(self.localsend_calls.read_text()), ['--text', ' ' + message])
+    arguments = json.loads(self.calls.read_text())
+    self.assertIn('--expand-environment=no', arguments)
+    self.assertIn('--description=Share text with LocalSend', arguments)
+    self.assertFalse((self.directory / 'unwanted').exists())
+    self.assertFalse((self.directory / 'notification').exists())
+
+  def test_clipboard_read_failure_does_not_share_partial_text(self):
+    self.environment.update(SHARE_TEST_CLIPBOARD='partial', SHARE_TEST_CLIPBOARD_STATUS='1')
+    self.assertNotEqual(self.share('clipboard').returncode, 0)
+    self.assertFalse(self.calls.exists())
+    self.assertIn('Could not read the clipboard', (self.directory / 'notification').read_text())
+
+  def test_oversized_clipboard_launch_failure_notifies(self):
+    self.environment['SHARE_TEST_CLIPBOARD_SIZE'] = str(140 * 1024)
+    result = self.share('clipboard')
+    self.assertNotEqual(result.returncode, 0)
+    self.assertFalse(self.localsend_calls.exists())
+    self.assertIn('LocalSend did not open', (self.directory / 'notification').read_text())
+
+  def test_empty_clipboard_retains_native_text_route(self):
+    self.assertEqual(self.share('clipboard').returncode, 0)
+    self.assertEqual(json.loads(self.localsend_calls.read_text()), ['--text', ' '])
+
+  def test_clipboard_launch_failure_notifies(self):
+    self.environment.update(SHARE_TEST_CLIPBOARD='hello', SHARE_TEST_LAUNCH_STATUS='1')
+    self.assertNotEqual(self.share('clipboard').returncode, 0)
+    self.assertIn('LocalSend did not open', (self.directory / 'notification').read_text())
+
+  def test_clipboard_detached_failure_notifies(self):
+    self.environment.update(SHARE_TEST_CLIPBOARD='hello', SHARE_TEST_LOCALSEND_STATUS='7')
+    self.assertEqual(self.share('clipboard').returncode, 0)
+    self.assertIn('LocalSend exited with an error', (self.directory / 'notification').read_text())
+    self.assertEqual(self.completed.read_text(), '7')
+
+  def test_file_and_folder_launch_failures_notify(self):
+    self.environment['SHARE_TEST_LAUNCH_STATUS'] = '1'
+    for mode in ('file', 'folder'):
+      with self.subTest(mode=mode):
+        self.assertNotEqual(self.share(mode, '/a path').returncode, 0)
+        self.assertIn('LocalSend failed to start', (self.directory / 'notification').read_text())
+
+  def test_selected_files_and_folder_remain_headless_shares(self):
+    for mode, picked in [('file', '/a path\n/another file'), ('folder', '/a directory')]:
+      with self.subTest(mode=mode):
+        self.environment['SHARE_TEST_PICKED'] = picked
+        self.assertEqual(self.share(mode).returncode, 0)
+        self.assertEqual(json.loads(self.localsend_calls.read_text()), ['--headless', 'send', *picked.splitlines()])
+
+  def test_picker_cancel_does_not_launch(self):
+    self.environment['SHARE_TEST_PICKER_STATUS'] = '1'
+    self.assertEqual(self.share('file').returncode, 0)
+    self.assertFalse(self.calls.exists())
+
+  def test_picker_failure_notifies(self):
+    self.environment['SHARE_TEST_PICKER_STATUS'] = '2'
+    self.assertNotEqual(self.share('file').returncode, 0)
+    self.assertFalse(self.calls.exists())
+    self.assertIn('The file chooser did not open', (self.directory / 'notification').read_text())
 
   def test_real_composer_imports_matching_toolkits(self):
     try:

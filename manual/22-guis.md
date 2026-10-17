@@ -46,7 +46,7 @@ You start Aether via the application launcher (`Super + Space`).
 
 You can open the Share menu on `Super + Ctrl + S` or under _Trigger > Share_ in the Omarchy menu. It gives you five options:
 
-- **Clipboard** sends whatever you've copied as a text file. Great for getting a link or a snippet onto your phone without emailing yourself.
+- **Clipboard** stages whatever you've copied as a native text message in LocalSend. Great for getting a link or a snippet onto your phone without emailing yourself.
 - **Text** opens a multiline composer for a text message. Type or paste your message, then choose a nearby device in LocalSend. Press `Ctrl + Enter` to choose a device or `Esc` to cancel.
 - **File** opens a file picker where you can select several at once.
 - **Folder** sends an entire directory.
