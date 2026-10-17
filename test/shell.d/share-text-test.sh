@@ -5,6 +5,7 @@ set -euo pipefail
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
 require_command python3
+require_command jq
 
 python3 - <<'PY'
 import json
@@ -70,6 +71,11 @@ sys.exit(int(os.environ.get('SHARE_TEST_LOCALSEND_STATUS', '0')))
     # A PATH-selected Python must never replace Arch's GI-enabled interpreter.
     self.stub('python3', '#!/bin/bash\nexit 99\n')
     self.stub('omarchy-notification-send', '#!/bin/bash\nprintf "%s\\n" "$@" > "$SHARE_TEST_NOTIFICATION"\n')
+    self.stub('omarchy-i18n', f'#!/bin/bash\nexec "{root}/bin/omarchy-i18n" "$@"\n')
+    i18n = self.directory / 'default/i18n'
+    (i18n / 'en').mkdir(parents=True)
+    for path in ('en/cli.json', 'plural.jq', 'locales.json'):
+      (i18n / path).write_bytes((root / 'default/i18n' / path).read_bytes())
     self.stub('wl-paste', f'''#!{sys.executable}
 import os, sys
 sys.stdout.write('x' * int(os.environ.get('SHARE_TEST_CLIPBOARD_SIZE', '0')) + os.environ.get('SHARE_TEST_CLIPBOARD', ''))
@@ -184,6 +190,16 @@ sys.exit(int(os.environ.get('SHARE_TEST_PICKER_STATUS', '0')))
     self.assertNotEqual(self.share('clipboard').returncode, 0)
     self.assertFalse(self.calls.exists())
     self.assertIn('Could not read the clipboard', (self.directory / 'notification').read_text())
+
+  def test_clipboard_notification_uses_language_catalog(self):
+    i18n = self.directory / 'default/i18n'
+    (i18n / 'da').mkdir()
+    (i18n / 'da/cli.json').write_text(json.dumps({'share.clipboardReadFailed': 'Synthetic translated clipboard failure'}))
+    language = self.directory / 'language'
+    language.write_text('da\n')
+    self.environment.update(OMARCHY_LANGUAGE_FILE=str(language), SHARE_TEST_CLIPBOARD_STATUS='1')
+    self.assertNotEqual(self.share('clipboard').returncode, 0)
+    self.assertIn('Synthetic translated clipboard failure', (self.directory / 'notification').read_text())
 
   def test_oversized_clipboard_launch_failure_notifies(self):
     self.environment['SHARE_TEST_CLIPBOARD_SIZE'] = str(140 * 1024)
