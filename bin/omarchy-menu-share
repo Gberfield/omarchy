@@ -60,23 +60,59 @@ fi
 
 # Run LocalSend in its own systemd service (detached from terminal)
 if [[ $MODE == "text" || $MODE == "clipboard" ]]; then
-  # LocalSend checks special flags before consuming the --text value.
-  # A leading space protects messages like "--share"; LocalSend trims it.
-  # Successful scheduling does not mean that LocalSend itself can start.
-  # Keep its exit check in the service; disable systemd's environment expansion
-  # and pass the message as a literal argument.
-  # A fixed description keeps message contents out of systemd's journal.
-  # shellcheck disable=SC2016 # The service shell expands its own positional argument and status.
+  # Linux limits a single argument to 128 KiB on 4 KiB-page systems. Leave
+  # room for the protective space/NUL and use a private file from 64 KiB.
+  # Count bytes, not characters, so multibyte clipboard text is safe too.
+  text_needs_file() {
+    local LC_ALL=C
+    ((${#text} >= 64 * 1024))
+  }
+
+  text_dir=""
+  if text_needs_file; then
+    text_dir=$(umask 077; mktemp -d "${TMPDIR:-/tmp}/omarchy-share-text.XXXXXX") || status=$?
+    if [[ -z $text_dir ]] || ! (umask 077; printf '%s' "$text" > "$text_dir/message.txt"); then
+      if [[ -n $text_dir ]]; then
+        rm -f -- "$text_dir/message.txt"
+        rmdir -- "$text_dir"
+      fi
+      omarchy-notification-send -g "" -u critical "$(omarchy-i18n share.couldNotText)" "$(omarchy-i18n share.localsendNotOpened)"
+      exit 1
+    fi
+    share_command=(localsend --headless send "$text_dir/message.txt")
+  else
+    # LocalSend checks flags before consuming --text, then trims its value.
+    share_command=(localsend --text " $text")
+  fi
+
+  # Successful scheduling does not mean LocalSend itself can start. Keep its
+  # exit check and private-file cleanup inside the detached service. Fixed
+  # descriptions exclude text from systemd's start/stop descriptions, but
+  # native text arguments can still appear in process lists/journal _CMDLINE.
+  # shellcheck disable=SC2016 # The service shell expands its own arguments.
   systemd-run --user --quiet --collect --expand-environment=no --description="Share text with LocalSend" /bin/bash -c '
-    if localsend --text "$1"; then
+    text_dir=$1
+    shift
+    cleanup_text_file() {
+      if [[ -n $text_dir ]]; then
+        rm -f -- "$text_dir/message.txt"
+        rmdir -- "$text_dir"
+      fi
+    }
+    trap cleanup_text_file EXIT
+    if "$@"; then
       exit 0
     else
       status=$?
       omarchy-notification-send -g "" -u critical "$(omarchy-i18n share.couldNotText)" "$(omarchy-i18n share.localsendExited)"
       exit "$status"
     fi
-  ' omarchy-share-text " $text" || status=$?
+  ' omarchy-share-text "$text_dir" "${share_command[@]}" || status=$?
   if ((${status:-0} > 0)); then
+    if [[ -n $text_dir ]]; then
+      rm -f -- "$text_dir/message.txt"
+      rmdir -- "$text_dir"
+    fi
     omarchy-notification-send -g "" -u critical "$(omarchy-i18n share.couldNotText)" "$(omarchy-i18n share.localsendNotOpened)"
     exit "$status"
   fi

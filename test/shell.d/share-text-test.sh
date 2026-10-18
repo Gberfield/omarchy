@@ -63,6 +63,11 @@ subprocess.Popen([sys.executable, '-c', worker, *arguments],
 import json, os, sys
 from pathlib import Path
 Path(os.environ['SHARE_TEST_LOCALSEND_CALLS']).write_text(json.dumps(sys.argv[1:]))
+if len(sys.argv) == 4 and sys.argv[1:3] == ['--headless', 'send'] and Path(sys.argv[3]).is_file():
+  p = Path(sys.argv[3])
+  (Path(os.environ['HOME']) / 'shared-file.json').write_text(json.dumps({{
+    'text': p.read_text(), 'file_mode': p.stat().st_mode & 0o777,
+    'directory_mode': p.parent.stat().st_mode & 0o777}}))
 sys.exit(int(os.environ.get('SHARE_TEST_LOCALSEND_STATUS', '0')))
 """)
     composer = self.directory / 'default/localsend/share-text.py'
@@ -201,12 +206,68 @@ sys.exit(int(os.environ.get('SHARE_TEST_PICKER_STATUS', '0')))
     self.assertNotEqual(self.share('clipboard').returncode, 0)
     self.assertIn('Synthetic translated clipboard failure', (self.directory / 'notification').read_text())
 
-  def test_oversized_clipboard_launch_failure_notifies(self):
+  def allow_private_temp(self):
+    self.stub('mktemp', f'''#!/bin/bash
+path=$(/usr/bin/mktemp "$@") || exit
+printf '%s' "$path" > '{self.directory}/temporary-path'
+printf '%s\\n' "$path"
+''')
+
+  def assert_file_fallback(self, message, *arguments):
+    self.allow_private_temp()
+    result = self.share(*arguments)
+    self.assertEqual(result.returncode, 0, result.stderr)
+    args = json.loads(self.localsend_calls.read_text())
+    self.assertEqual(args[:2], ['--headless', 'send'])
+    staged = json.loads((self.directory / 'shared-file.json').read_text())
+    self.assertEqual(staged, {'text': message, 'file_mode': 0o600, 'directory_mode': 0o700})
+    self.assertFalse(Path(args[2]).exists(), 'Text file survived service completion')
+    self.assertFalse(Path(args[2]).parent.exists(), 'Private directory survived service completion')
+    service = json.loads(self.calls.read_text())
+    self.assertIn('--description=Share text with LocalSend', service)
+    self.assertNotIn(message, service)
+
+  def test_oversized_clipboard_uses_private_file_and_cleans_up(self):
+    message = 'x' * (140 * 1024) + '\ncafé ${HOME} $(touch unwanted)'
     self.environment['SHARE_TEST_CLIPBOARD_SIZE'] = str(140 * 1024)
-    result = self.share('clipboard')
-    self.assertNotEqual(result.returncode, 0)
-    self.assertFalse(self.localsend_calls.exists())
+    self.environment['SHARE_TEST_CLIPBOARD'] = '\ncafé ${HOME} $(touch unwanted)'
+    self.assert_file_fallback(message, 'clipboard')
+    self.assertFalse((self.directory / 'unwanted').exists())
+    self.assertFalse((self.directory / 'notification').exists())
+
+  def test_fallback_threshold_counts_utf8_bytes(self):
+    self.assert_file_fallback('é' * (32 * 1024), 'text', 'é' * (32 * 1024))
+
+  def test_ordinary_text_below_threshold_stays_native(self):
+    message = 'x' * (64 * 1024 - 1)
+    self.assertEqual(self.share('text', message).returncode, 0)
+    self.assertEqual(json.loads(self.localsend_calls.read_text()), ['--text', ' ' + message])
+
+  def test_oversized_composer_uses_file_fallback(self):
+    message = 'x' * (64 * 1024)
+    self.environment['SHARE_TEST_MESSAGE'] = message
+    self.assert_file_fallback(message, 'text')
+
+  def test_file_fallback_launch_failure_cleans_up_and_notifies(self):
+    self.allow_private_temp()
+    self.environment.update(SHARE_TEST_CLIPBOARD_SIZE=str(140 * 1024), SHARE_TEST_LAUNCH_STATUS='1')
+    self.assertNotEqual(self.share('clipboard').returncode, 0)
+    self.assertTrue((self.directory / 'temporary-path').exists(), 'Fallback did not prepare a file')
+    self.assertFalse(Path((self.directory / 'temporary-path').read_text()).exists())
     self.assertIn('LocalSend did not open', (self.directory / 'notification').read_text())
+
+  def test_file_fallback_child_failure_cleans_up_and_notifies(self):
+    message = 'x' * (64 * 1024)
+    self.environment.update(SHARE_TEST_MESSAGE=message, SHARE_TEST_LOCALSEND_STATUS='7')
+    self.assert_file_fallback(message, 'text')
+    self.assertEqual(self.completed.read_text(), '7')
+    self.assertIn('LocalSend exited with an error', (self.directory / 'notification').read_text())
+
+  def test_file_fallback_temp_creation_failure_notifies(self):
+    self.environment['SHARE_TEST_CLIPBOARD_SIZE'] = str(140 * 1024)
+    self.assertNotEqual(self.share('clipboard').returncode, 0)
+    self.assertFalse(self.calls.exists())
+    self.assertIn('Could not share text', (self.directory / 'notification').read_text())
 
   def test_empty_clipboard_retains_native_text_route(self):
     self.assertEqual(self.share('clipboard').returncode, 0)
