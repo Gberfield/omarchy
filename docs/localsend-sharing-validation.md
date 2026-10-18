@@ -50,7 +50,7 @@ git diff --check
 - **PASS:** CLI suite (125 assertions), notification wrapper (17 assertions), plugin picker (12 assertions), ShellCheck, Bash syntax, and whitespace checks.
 - **PASS WITH ONE INTENTIONAL SKIP:** structural i18n suite (401 `ok` lines, including the structural-mode translation-completeness skip). This run reaches the locale-generator and sync fixtures that the earlier container run did not complete. It does not prove translation completeness.
 - **PASS:** extraction scan reports `candidates: []`, `menuCatalogStale: false`, and `keybindingsCatalogStale: false`.
-- **FAIL, outside sharing:** `OMARCHY_PATH="$PWD" PATH="$PWD/bin:$PATH" bash test/shell.d/menu-test.sh` stops at `menu checks Opaque Bar while the bar is opaque`, expected `["opaque"]`, actual `[]`. The standalone `omarchy-bar background` scratch-home probe returns `opaque`; the full menu-test failure is not fixed or counted as passing. Earlier plugin-picker failures caused by the installed environment were resolved by explicitly selecting this checkout's `OMARCHY_PATH` and `PATH`.
+- **INITIAL FAIL, superseded by the 164-check host pass below:** `OMARCHY_PATH="$PWD" PATH="$PWD/bin:$PATH" bash test/shell.d/menu-test.sh` stops at `menu checks Opaque Bar while the bar is opaque`, expected `["opaque"]`, actual `[]`. The standalone `omarchy-bar background` scratch-home probe returns `opaque`; this restricted run was not counted as passing; the later host rerun supersedes it. Earlier plugin-picker failures caused by the installed environment were resolved by explicitly selecting this checkout's `OMARCHY_PATH` and `PATH`.
 
 ### Targeted GUI routes
 
@@ -71,8 +71,8 @@ omarchy share text $' \t\n'
 - **PASS:** file and folder routes each staged the synthetic 21-byte file. No recipient was selected and nothing was sent to another device.
 - **PASS:** whitespace-only direct input and actual composer Escape cancellation returned zero without calling the launch adapter. The GTK suite separately verifies whitespace button sensitivity, blank Ctrl+Enter, Ctrl+Enter acceptance, Cancel, and Escape.
 - **PASS:** the updated oversized clipboard route staged a synthetic 204 KB file in packaged LocalSend. Its content was synthetic multiline Unicode with literal shell-like text. The private file/directory cleanup and clipboard restoration were checked after ending the owned validation app.
-- **LIMITED:** the actual menu plugin configuration loads, but its overlay requires Hyprland monitor IPC. This Sway session cannot render it; parser/routing tests pass, while installed Share-menu clicks remain a VM acceptance gap. No production overlay was patched or replaced.
-- **LIMITED:** actual portal file/folder picker interaction remains unexecuted; explicit file/folder arguments and automated picker selection/cancellation/failure fixtures were exercised.
+- **INITIAL LIMIT, closed by installed VM checks below:** the actual menu plugin configuration loads, but its overlay requires Hyprland monitor IPC. This Sway session cannot render it; parser/routing tests pass, while installed Share-menu clicks remain a VM acceptance gap. No production overlay was patched or replaced.
+- **INITIAL LIMIT, closed by installed VM checks below:** actual portal file/folder picker interaction was unexecuted; explicit file/folder arguments and automated picker selection/cancellation/failure fixtures were exercised.
 - **LIMITED:** LocalSend logs missing private system-bus/NetworkManager access, GTK warnings, an existing-instance HTTP 403, and discovery/listener address-in-use warnings. Staging is observed; discovery, reception, and transmission are not accepted by these checks. An automatic safety review rejected an intended Edit-control click as insufficiently identified; that inspection was left unexecuted.
 
 Only synthetic data was placed in the hidden clipboard. Its prior selection was absent and was restored to absent; the host clipboard was not read or changed.
@@ -95,10 +95,77 @@ For text/clipboard cases, manager journal `MESSAGE` fields used the fixed `Share
 
 The first notification probe sampled before the service had finished; its failed witness is retained, and the probe now waits for terminal manager state. An initial oversized-probe expectation also included trailing newlines that the pre-existing clipboard command substitution removes; the corrected expectation follows that existing behavior. Neither probe correction is a production fix.
 
+## Follow-up validation on October 17, 2026 EDT
+
+The earlier opaque-bar shell-test failure is superseded. A diagnostic copy showed Node `spawnSync bash EPERM` in the restricted sandbox. The unchanged `OMARCHY_PATH="$PWD/omarchy" PATH="$PWD/omarchy/bin:$PATH" bash omarchy/test/shell.d/menu-test.sh` passed **all 164 checks** through the authorized host execution route. No product workaround or weakened assertion was introduced.
+
+The account has pull-only permission on upstream. An [approval request](https://github.com/omacom/omarchy/pull/14480#issuecomment-6244041382) was posted for the held translation workflow. At runtime-code head `a777fa86b4da343d3c8d0706428f27401aa77296`, [run 39084738026](https://github.com/omacom/omarchy/actions/runs/39084738026) remains `completed` / `action_required` with **zero jobs**. Greptile review succeeded for that head; this is not an Actions pass. No approval endpoint or bypass was used.
+
+### Fresh installed VM
+
+The user explicitly approved creating, testing, shutting down, and removing the disposable overlay for `localsend-14480-validation`, retaining the base image and evidence. Desk and all existing desktops stayed running. A fresh local-source ISO used `omarchy-iso` `3872d5a3695258944084f975749b4f88b7eced4a`, package recipes `f097a2472d364a548130d2bff43614eb9417cda1`, and archiso `424e78130db2af6c1ceb55b442d7914b1109ff2b`. The accepted image is named `omarchy-2026.10.18-x86_64-local.iso`, built October 17 EDT, SHA256 **`7a9f5682e1eaf51b47ab9661f83c816a04b2a757d1f62470d655b59642fb7a0a`**. Installed launcher/composer hashes match the tested runtime commit exactly.
+
+Guest versions: LocalSend `1.18.2-1`, GTK `1:3.24.52-2`, PyGObject `3.58.1-1`, systemd `262-1`, and running kernel `7.2.8-9-omarchy` with matching headers. Host QEMU is `11.1.1`.
+
+Build-preparation failures are retained separately from product results. The first ISO (`c420c4fd63ec21f9f7016c540341247976283cf554241ef2d498f621c5de029e`) installed root-owned public files with my private checkout's 0700/0600 modes and stopped at user finalization. Only owned public tracked source modes were normalized to Git executable bits; runtime bytes were unchanged. The next build rejected an old same-filename cached settings package checksum. The rebuilt package and index agreed, and all **1,197** offline package hashes passed audit. A task-local guard invalidated only the three locally rebuilt package cache entries before assembly, retaining checksum verification. The final ISO installed successfully. A nonfatal live-root initcpio warning for `/boot/vmlinuz-linux` remains logged; the ISO's selected live kernel was `linux-t2`, and the installed guest booted successfully.
+
+The initial QEMU invocation failed before boot on io_uring allocation. A temporary user-service restriction, `SystemCallFilter=~io_uring_setup` with `SystemCallErrorNumber=EPERM`, selects QEMU's supported epoll fallback. `NoNewPrivileges=yes` and `LimitCORE=0` remain enabled. An earlier preflight omitted the error-number property and produced SIGSYS in its own `qemu-img`; its evidence is retained. No global kernel, authentication, or desktop configuration was changed.
+
+The initial build command, from the isolated sibling ISO checkout, was:
+
+```bash
+./bin/omarchy-iso-make --keep-pkg-cache --no-boot-offer --local-source ../omarchy ../omarchy-pkgs
+```
+
+The corrected build used the reviewed `../evidence/followup/rebuild-iso-once.sh` through one separately approved sudo invocation per attempt. Its container had a unique name, 16 GiB memory/6 CPU limits, read-only source/recipe mounts, only task-private writable caches, and a 10 GiB host free-space guard. Exact build logs, scripts, checksum audits, and the local harness diff are retained in `../evidence/followup/`; those harness changes are not contribution changes.
+
+The clean full-suite rerun used the following command from the validation workspace (`TASK` denotes that workspace's absolute path):
+
+```bash
+systemd-run --user --quiet --wait --pipe --collect \
+  --unit=localsend-14480-validation \
+  --description='Disposable LocalSend contribution acceptance VM' \
+  --property=NoNewPrivileges=yes \
+  --property=SystemCallFilter=~io_uring_setup \
+  --property=SystemCallErrorNumber=EPERM \
+  --property=LimitCORE=0 --property=MemoryMax=16G \
+  --working-directory="$TASK/omarchy-iso" \
+  /usr/bin/bash ./bin/omarchy-iso-test \
+  release/omarchy-2026.10.18-x86_64-local.iso \
+  --reuse-base --sync-omarchy ../omarchy --port 41797 --memory 8192 --no-preview
+```
+
+The first run omitted `--reuse-base` and performed the fresh installation. The ISO already contained the candidate runtime; `--sync-omarchy` copied tests, not a replacement runtime. The VM was headless, used KVM, four vCPUs/8 GiB RAM, private QMP, localhost-only test SSH, and no VNC listener. No broad acceptance command ran on desk.
+
+### Full graphical suite: executed, not green
+
+Both complete runs exercised all ten test files: **eight passed, two failed**, in **251 seconds** and **246 seconds**. No file was skipped. Passing files were `apps-test.sh`, `cups-test.sh`, `input-methods-test.sh`, `overlay-monitor-test.sh`, `panels-test.sh`, `security-test.sh`, `session-test.sh`, and `system-test.sh`.
+
+- **FAIL:** `menu-test.sh` expects the fifth Style item to open Menu Bar. Current upstream puts Hyprland there; the captured screen shows `looknfeel.lua` opening. The bar-position check is therefore not accepted.
+- **FAIL:** `shell-surfaces-test.sh` expects `omarchy-menu` for the Apps route. Current upstream opens the `omarchy-dock-apps` grid, so the test times out and leaves a keyboard-grabbing overlay. Its earlier notification, clipboard, selector, and reminder checks passed; the whole file did not.
+
+These files are unchanged from included quattro `4e059acff2f4e4c4e5a303ce9bc97223097e45eb`; this contribution's menu diff adds only Share Text. The local ISO shortcut smoke had the same stale apps namespace. Correcting that harness expectation and cleanup made **all QMP shortcut/clipboard smoke checks pass**, including the initially failed apps-open and audio-close checks. The two unchanged full-suite failures remain reported, not rewritten as passes.
+
+### Targeted installed LocalSend checks: passed
+
+Independent targeted runs reused the clean base with the same VM command and `--setenv=LOCALSEND_ONLY=1`. The final remaining-picker/notification run also set `--setenv=LOCALSEND_PICKERS_ONLY=1`. These task-local modes skip the already-recorded broad suite; a targeted pass is not a full-suite pass. Guest probes ran through the real installed CLI, real user manager, real portal, packaged LocalSend, and installed notification shell, without the native-session launch adapter.
+
+- **PASS:** the actual Share menu opened the actual composer; multiline Unicode, literal `${HOME}`, `$(touch unwanted)`, quotes, and flag-like contents reached native LocalSend unchanged. The composer/clipboard payload was **59 bytes**; direct CLI `--share` staged **7 bytes**. No `unwanted` file appeared.
+- **PASS:** real LocalSend rendered its Selection panel for composer, direct CLI, clipboard, and **191,999-byte** oversized clipboard data. The large route's exact private file contents, 0700 directory/0600 file permissions, and cleanup after the app exited were checked.
+- **PASS:** actual GTK portal file and folder selection, with synthetic space-containing paths, produced the expected literal process arguments and rendered **21-byte** selections in LocalSend. The folder's matching row and Select button were activated through the VM's QMP tablet. No device card was activated.
+- **PASS:** a real graphical LocalSend process ran in a user service whose description was exactly `Share text with LocalSend`. Manager journal messages contained no `LSVM` synthetic marker. The actual startup-failure unit logged `cannot open display`, exit status **1**, and `exit-code`; the installed shell visibly rendered `Could not share text` / `LocalSend exited with an error`. Its journal and screenshot were inspected.
+- **PASS:** actual VM composer Escape cancellation after closing a stale test overlay. The earlier real GTK/native checks cover Cancel, Escape, Ctrl+Enter, blank input, whitespace sensitivity, and direct whitespace-only input; these are not inferred from a window merely opening.
+
+Early supplemental attempts failed because stale broad-suite overlays captured input, a probe used the wrong focus API, `wtype` did not reach the portal despite confirmed window focus, and a scaled OCR check missed an actually visible notification. Their screenshots/logs remain retained. QMP input completed the portal checks; native-resolution OCR plus visual inspection confirmed the same expected notification text. Early black startup-window screenshots are not counted as rendered staging; the accepted checks explicitly wait for the Selection panel. Final composer, file/folder Selection panels, and failure toast were visually inspected.
+
+Text/clipboard and picker/notification results come from separate bounded runs, not one claimed all-green aggregate. Accepted text artifacts are in ISO run `20261017-221622`; final picker/notification artifacts are in `20261017-223408`. Full-suite logs are `../evidence/followup/vm-acceptance-v3.log` and `vm-acceptance-v4.log`; the final picker/notification command exited **0** in `vm-localsend-final.log`. Only synthetic clipboard data was used in the guest; its prior selection was restored where practical, and no host clipboard was used. All disposable overlays were removed after their own VM stopped; the successful base image, ISO, logs, and screenshots remain retained. Final verification found the test unit inactive with `MainPID=0`, both test listener ports closed, and zero remaining disposable overlays.
+
+Fixed descriptions protect systemd's command-derived descriptions. They do **not** hide native message arguments from process inspection or application journal `_CMDLINE`; the desk failure test confirmed that exposure. The installed-VM checks close the earlier Share-menu, portal-picker, real graphical service, and rendered-toast gaps without claiming transmission acceptance.
+
 ## Remaining acceptance gaps
 
-- **NOT RUN:** full graphical acceptance in a disposable installed Omarchy VM. The current chat has no running contained VM supervisor, and the expected local `omarchy-iso` checkout/ISO harness was unavailable. No full acceptance command was run on desk. Follow `agents/skills/acceptance-tests.md` with `--sync-all ../omarchy` when the disposable harness is available; installed Share-menu/portal-picker interaction and rendered notification toasts remain part of that gap.
-- **ACTION REQUIRED upstream:** the exact starting-head translation workflow [run 39080813299](https://github.com/omacom/omarchy/actions/runs/39080813299) reports `completed` / `action_required` with **zero jobs**. Local structural checks passing is not an Actions pass. An upstream maintainer must approve eligible workflow execution; no approval control was bypassed. Check the latest head run after each push; this historical run is not a result for a later commit.
+- **EXECUTED / FAIL:** the full installed graphical suite has the two stale-navigation failures detailed above. It is not green, despite all targeted LocalSend checks passing.
+- **ACTION REQUIRED upstream:** translation workflow execution still needs an upstream maintainer's approval. The contributor cannot approve it. Check the latest head after the report push; no held or unexecuted workflow is counted as passing.
 - **NOT AUTHORIZED / NOT RUN:** sending to another device. No transmission or reception acceptance is claimed.
 
 Neither PR has been merged.
