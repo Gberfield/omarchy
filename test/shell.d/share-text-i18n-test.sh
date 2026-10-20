@@ -46,6 +46,9 @@ class ComposerTranslationTests(unittest.TestCase):
         source = root / 'default/i18n' / code / 'cli.json'
         data = json.loads(source.read_text())
         if code == 'de':
+          # Keep missing/empty fallback cases independent of translation syncs.
+          for key in english:
+            data.pop(key, None)
           data.update(catalog)
         (destination / 'cli.json').write_text(json.dumps(data))
       for name in ('plural.jq', 'locales.json'):
