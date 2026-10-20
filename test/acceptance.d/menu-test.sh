@@ -67,27 +67,33 @@ wait_until "root menu opens" 15 layer_on_overlay "omarchy-menu"
 wait_until "root menu content is visible" 15 screen_contains "Apps"
 screenshot "success-menu-01-root"
 
-wtype -k Down -k Down -k Down
+# Menu Bar lives under Trigger > Appearance, not Style.
+wtype -k Down -k Down
 sleep 1
-screenshot "success-menu-02-style-selected"
+screenshot "success-menu-02-trigger-selected"
 wtype -k Return
 
-wait_until "style submenu is visible" 15 screen_contains "Theme"
-screenshot "success-menu-03-style-submenu"
-
-wtype -k Down -k Down -k Down -k Down -k Return
-sleep 1
-screenshot "success-menu-04-menu-bar-submenu"
+wait_until "trigger submenu is visible" 15 screen_contains "Appearance"
+screenshot "success-menu-03-trigger-submenu"
 
 wtype -k Return
-sleep 1
-screenshot "success-menu-05-position-submenu"
+wait_until "appearance submenu is visible" 15 screen_contains "Menu Bar"
+screenshot "success-menu-04-appearance-submenu"
+
+wtype -k Down -k Return
+wait_until "menu bar submenu is visible" 15 screen_contains "Position Bar"
+screenshot "success-menu-05-menu-bar-submenu"
+
+# Hide/Show Bar is the first row; Position Bar is the second.
+wtype -k Down -k Return
+wait_until "position submenu is visible" 15 screen_contains "Left Bar"
+screenshot "success-menu-06-position-submenu"
 
 wtype -k Down -k Down -k Return
 wait_until "menu bar position changes to left" 20 bar_position_is "left"
 wait_until "menu bar becomes vertical" 20 bar_is_vertical
 wait_until "menu closes after selecting a position" 15 layer_absent "omarchy-menu"
-screenshot "success-menu-06-bar-left"
+screenshot "success-menu-07-bar-left"
 
 if ((config_existed)); then
   cp "$config_backup" "$CONFIG_FILE"
@@ -101,7 +107,7 @@ if [[ $original_position == "left" || $original_position == "right" ]]; then
 else
   wait_until "menu bar restores its original horizontal position" 20 bar_is_horizontal
 fi
-screenshot "success-menu-07-bar-restored"
+screenshot "success-menu-08-bar-restored"
 
 trap - EXIT
 restore_bar_config
