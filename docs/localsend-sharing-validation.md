@@ -1,5 +1,7 @@
 # LocalSend sharing validation
 
+Latest installed-VM run: [October 19 current-head localization validation](#fresh-installed-vm-localization-validation-october-19-2026-edt). The full graphical suite ran at `dc2ff87b11ba458a059d14233e6698b86ecc22bc`: **7/10 files passed**, with three failures retained; targeted LocalSend and real GTK localization checks passed. Earlier results below remain historical.
+
 The Share menu and CLI now support native LocalSend text messages through a multiline composer or `omarchy share text [message]`. Ordinary clipboard sharing uses LocalSend's native `--text` route without temporary files, aligned with guilhermetk's independently authored #6979. His contribution is credited in the reconciliation commit; his branch is unchanged.
 
 Text and clipboard launches share the existing protected launcher: fixed systemd descriptions keep message contents out of command-derived journal descriptions, environment expansion is disabled, flag-like messages are protected, and the detached service reports LocalSend errors. Clipboard-read failures and file/folder service-launch failures also notify. File/folder selection remains unchanged. LocalSend still receives text in process arguments and trims surrounding whitespace.
@@ -162,7 +164,7 @@ Text/clipboard and picker/notification results come from separate bounded runs, 
 
 Fixed descriptions protect systemd's command-derived descriptions. They do **not** hide native message arguments from process inspection or application journal `_CMDLINE`; the desk failure test confirmed that exposure. The installed-VM checks close the earlier Share-menu, portal-picker, real graphical service, and rendered-toast gaps without claiming transmission acceptance.
 
-## Remaining acceptance gaps
+## Remaining acceptance gaps at the October 17 checkpoint
 
 - **EXECUTED / FAIL:** the full installed graphical suite has the two stale-navigation failures detailed above. It is not green, despite all targeted LocalSend checks passing.
 - **ACTION REQUIRED upstream:** translation workflow execution still needs an upstream maintainer's approval. The contributor cannot approve it. Check the latest head after the report push; no held or unexecuted workflow is counted as passing.
@@ -359,3 +361,96 @@ The identical failing shell-test files are listed below so the failed aggregate 
 </details>
 
 The latest pre-fix upstream translation workflow was awaiting maintainer approval. Publishing this commit does not approve upstream Actions or establish that the updated workflow ran. The localization review thread remains for upstream review.
+
+
+## Fresh installed-VM localization validation, October 19, 2026 EDT
+
+This is a new run, separate from the October 17 evidence above. GitHub PR metadata, `git ls-remote`, and a fetch into an isolated standalone checkout all identified `dc2ff87b11ba458a059d14233e6698b86ecc22bc` as `Gberfield/omarchy:add-share-text`; a second remote check immediately before VM testing returned the same head. The earlier workspace, ISO, installed base, logs, and screenshots were located at `/home/gabe/Documents/Codex/2026-10-17/complete-the-remaining-live-validation-for` before rebuilding. They were retained without editing their checkouts, base, firmware, or caches.
+
+### Fresh image and installed runtime
+
+`TASK` below is `/home/gabe/Documents/Codex/2026-10-19/complete-graphical-vm-validation-for-my`. Its contribution checkout is `omarchy-validation`. The harness instructions require a fresh ISO for shipped-default changes, including the new English catalog entries, so this run did not rely on test syncing or replace files in an old installed base. It copied the retained ISO builder/package recipes into this task, preserved their symlinks, made private reflinked cache copies, and normalized only the isolated public source tree to Git file modes before packaging. Source mounts were read-only; the build used one host sudo operation and a uniquely named container with 16 GiB/6 CPU limits and a 10 GiB free-space guard.
+
+The builder is `omarchy-iso` `3872d5a3695258944084f975749b4f88b7eced4a` with the retained task-local build fixes, recipes are `f097a2472d364a548130d2bff43614eb9417cda1`, and archiso is `424e78130db2af6c1ceb55b442d7914b1109ff2b`. The successful new ISO is `omarchy-2026.10.20-x86_64.iso`, SHA256 **`5e0570e8b685398e52eb7ff6b62ff5e3a97c8bb823425d4ad83fdb5e89a74e06`**. Its filename follows the builder's date convention; the build and test occurred October 19 EDT. The build exited **0**.
+
+Before the graphical suite, `sha256sum -c /tmp/localsend-runtime.sha256` verified all seven installed files against `dc2ff87`: `bin/omarchy-menu-share`, `bin/omarchy-i18n`, `default/localsend/share-text.py`, the English and German `cli.json` catalogs, `locales.json`, and `plural.jq`. In particular, the installed composer SHA256 is `9e32c8d5f4f97bf19f3185780f68408824b0119d818c6c580a36c27dc9edbbef`, and the English catalog SHA256 is `8c62d8c7b04a2fbbd9b936862fc2d7c2f0c802b9e4aecd3a1fb5fabded946a52`. These were package-installed files under `/usr/share/omarchy`, not the synced test checkout.
+
+Guest versions: LocalSend `1.18.2-1`, GTK `1:3.24.52-2`, PyGObject `3.58.1-1`, systemd `262.1-1`, Hyprland `0.56.2-4`, Quickshell `0.3.2.r7.g2b4501a-1`, and kernel `7.2.8-9-omarchy`. Host QEMU is `11.1.2`. The headless KVM guest had four vCPUs/8 GiB RAM, private QMP, localhost-only SSH, no VNC viewer, and no shared host clipboard or device passthrough. Only this task's VM, `localsend-14480-20261019-validation`, was targeted by lifecycle commands.
+
+### Commands and full graphical results
+
+From `$TASK`:
+
+```bash
+sudo -- /usr/bin/bash "$TASK/evidence/rebuild-iso.sh"
+bash evidence/run-vm.sh
+```
+
+The second script executes the following command after hashing the single new image:
+
+```bash
+systemd-run --user --quiet --wait --pipe --collect \
+  --unit=localsend-14480-20261019-validation \
+  --description='Disposable LocalSend current-head acceptance VM' \
+  --property=NoNewPrivileges=yes \
+  --property=SystemCallFilter=~io_uring_setup \
+  --property=SystemCallErrorNumber=EPERM \
+  --property=LimitCORE=0 --property=MemoryMax=16G \
+  --working-directory="$TASK/omarchy-iso" \
+  /usr/bin/bash ./bin/omarchy-iso-test \
+  "$TASK/omarchy-iso/release/omarchy-2026.10.20-x86_64.iso" \
+  --sync-omarchy "$TASK/omarchy-validation" --port 41819 --memory 8192 --no-preview
+```
+
+There was **no `--reuse-base`**: the installer, first boot, installed-base save, and disposable acceptance overlay all ran. `--sync-omarchy` supplied tests only. The retained task-local harness also performed QMP shortcut/clipboard smoke checks, the installed-file identity checks, and the supplemental probes below. The harness delta and scripts are retained separately from the contribution; acceptance assertions were not weakened or edited.
+
+The full graphical suite exercised all **ten files**, with no file skipped, in **242 seconds**: **seven passed, three failed**. The service journal records the harness exiting **1/FAILURE**. The outer execution session returned **143**; that is not reported as a successful wrapper exit. Complete test output and collected artifacts were retained.
+
+| Acceptance file | New result | Detail |
+| --- | --- | --- |
+| `apps-test.sh` | PASS | Application launch/close checks |
+| `cups-test.sh` | PASS | Service and authorization checks |
+| `input-methods-test.sh` | PASS | Input-engine setup/composition checks |
+| `menu-test.sh` | FAIL | `menu bar position changes to left` |
+| `overlay-monitor-test.sh` | PASS | Monitor removal/recovery checks |
+| `panels-test.sh` | FAIL | `weather location is visible` |
+| `security-test.sh` | PASS | Guest security checks |
+| `session-test.sh` | PASS | Session checks |
+| `shell-surfaces-test.sh` | FAIL | `apps menu opens` |
+| `system-test.sh` | PASS | Installed system/tool checks |
+
+`menu-test.sh` again navigated to the Hyprland `looknfeel.lua` editor rather than Menu Bar. `shell-surfaces-test.sh` again expected the old menu surface while the screenshot shows the Apps grid. Both are the historical stale-navigation failures. The acceptance runner and all acceptance files are byte-unchanged between the prior `f7f95b835c241927aef19458a3e9692e96ed3bb1` source and `dc2ff87`; `git diff --exit-code` for those paths returned **0**.
+
+`panels-test.sh` is an **additional failure in this run**, not part of the historical two-file result. Its Weather panel opened, then the 30-second `screen_contains "SAN FRANCISCO"` assertion timed out. The retained failure screenshot visibly contains `SAN FRANCISCO` and weather details; a separate native-resolution `tesseract ... --psm 11` reads both `SAN FRANCISCO` and `WIND`. The precise cause of the suite's scaled-OCR mismatch was not isolated. The file remains **FAIL**, and its later panel/navigation assertions were not reached. A weather-journal retrieval attempted after automatic guest shutdown returned SSH connection refused; no journal diagnosis or replacement pass is claimed.
+
+### Current-head LocalSend and localization results
+
+The installed-session supplemental command was:
+
+```bash
+OMARCHY_ACCEPTANCE_DIR=/tmp/omarchy-acceptance bash /tmp/localsend-vm-checks.sh
+timeout 180 python3 /tmp/localized-gtk.py
+```
+
+The first probe was copied from `$TASK/evidence/followup/localsend-vm-checks.sh`; the second from `$TASK/evidence/localized-gtk.py`. Both reached their successful final assertions. They ran with the guest's real Wayland session, user manager, installed shell, packaged LocalSend, and current installed contribution files. No service-execution adapter replaced systemd.
+
+- **PASS:** the actual Share submenu displayed Clipboard, Text, File, Folder, and Receive. Selecting Text opened the actual composer. The English prompt, Cancel/Choose device buttons, and shortcut hint were visually inspected with entered multiline Unicode. Actual `wtype` Ctrl+Enter reached packaged LocalSend; its rendered Selection panel staged the **59-byte** synthetic message. Literal `${HOME}`, `$(touch unwanted)`, quotes, and `--share` matched the expected native `--text` arguments, and no `unwanted` file appeared.
+- **PASS:** direct flag-like `--share` and clipboard text also reached rendered native LocalSend selections. A **191,999-byte** synthetic Unicode clipboard staged as a **192.0 KB** file selection. The exact private file bytes, 0700 directory/0600 file modes, and removal of both file and directory after the owned app exited were asserted. No device card was activated.
+- **PASS:** the actual graphical text process ran in a real user service with the fixed `Share text with LocalSend` description; systemd manager messages contained no synthetic `LSVM` marker. An independently named real service then failed to start packaged LocalSend on an intentionally nonexistent display: its journal records `cannot open display`, exit **1/FAILURE**, and `exit-code`. The installed shell visibly rendered `Could not share text` / `LocalSend exited with an error`; the dedicated screenshot and journal were inspected. Closing successful staging apps with TERM can also produce failure toasts; those incidental toasts are not substituted for this independently recorded startup failure.
+- **PASS:** **16 real GTK cases** cover four isolated catalog/language fixtures—fully translated synthetic German, German with an empty Cancel translation and missing other keys, English, and unknown language—crossed with Ctrl+Enter acceptance, actual Cancel-button activation, Escape, and blank Ctrl+Enter followed by valid acceptance. Every case checked initial/whitespace button sensitivity and that blank Ctrl+Enter kept the dialog open. The real installed composer and `omarchy-i18n` were used, with no GTK replacement. All five label values, including application/window title, matched expectations; accepted stdout exactly matched the multiline Unicode payload and cancellation emitted nothing. UI translations, including literal shell-like text in the synthetic German prompt, never entered the payload.
+- **VISUAL SCOPE:** German, mixed fallback, English, and unknown-language screenshots were inspected for the prompt, buttons, hint, Unicode, and clipping. Omarchy's tiled presentation does not display a separate composer title bar in these screenshots; the title and application-name properties were verified on the real GTK objects. GTK keyboard-event checks complement the actual menu/composer `wtype` Ctrl+Enter route; no physical-keyboard or device-transmission acceptance is implied.
+
+The four automated `share-text-i18n-test.sh` cases also passed twice outside the guest: once with the current catalogs and once in a private copied fixture with all five German keys synthetically completed. `share-text-test.sh` passed **27 tests** plus its actual menu-parser assertion. These are separate automated results, not substitutes for the 16 real GTK guest cases. Task-local Bash syntax, Python compilation, and `shellcheck -x -P SCRIPTDIR evidence/followup/localsend-vm-checks.sh` passed. No new aggregate CLI/shell-suite pass is claimed.
+
+### Retained evidence and cleanup
+
+New artifacts are under `$TASK/omarchy-iso/test-runs/omarchy-2026.10.20-x86_64/runs/20261019-210122/`; the ISO and reusable `base.qcow2` remain in the surrounding release/test-runs directories. There are **123 retained PNGs** across the run, including 122 success/failure captures and the native notification capture. Important files include:
+
+- `$TASK/evidence/iso-build.log`, `iso.sha256`, `vm-validation.log`, `vm-service-journal.log`, `full-suite-results.json`, `runtime.sha256`, `guest-versions.txt`, `cleanup.json`, `ledger.json`, `harness-current-run.diff`, and the exact probe/build scripts.
+- `runtime-identity.log` and `omarchy-acceptance/localized-gtk-results.json` in the new run directory; the latter contains all 16 distinct case/action results with exact-payload assertions.
+- `omarchy-acceptance/success-localsend-share-menu.png`, `success-localsend-composer-entered.png`, `success-localsend-composer.png`, `success-localsend-large-clipboard.png`, `success-localsend-detached-failure-notification.png`, and `success-localized-*.png`.
+- `omarchy-acceptance/failure-menu-bar-position-changes-to-left.png`, `failure-weather-location-is-visible.png`, and `failure-apps-menu-opens.png`; the Weather native OCR text is `$TASK/evidence/weather-failure-native-ocr.txt`.
+
+The owned VM was stopped and its disposable `run.qcow2` removed. Final checks found its collected unit absent/inactive with `MainPID=0`, no QEMU PID file, and ports **41819/41820 closed**. The new reusable installed base, ISO, scripts, logs, and screenshots were retained. No host GUI, installed Omarchy files, unrelated VM, or existing worktree was targeted for modification or shutdown. This run did not repeat the historical file/folder portal-picker acceptance, send data to another device, approve upstream workflows, post comments, or merge either PR.
+
+The earlier **8/10** graphical results remain historical. The current-head full-suite result is **7/10**, with all targeted LocalSend/localization checks above passing within their stated scope.
