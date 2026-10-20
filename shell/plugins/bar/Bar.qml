@@ -1544,6 +1544,14 @@ Item {
     visible: !remapGuard.remapping && (cutoutWaitOver || !cutoutPending)
     exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Auto
 
+    // Layer geometry is committed during polish. Flush it after the margin
+    // bindings settle, even when the parked window has no frame to render.
+    onMarginsChanged: Qt.callLater(function() {
+      contentItem.ensurePolished()
+      var window = contentItem.Window.window
+      if (window) window.update()
+    })
+
     ScreenMoveRemap {
       id: remapGuard
       window: barWindow
