@@ -1,6 +1,11 @@
 #!/usr/bin/python3
 """Print a composed text message; return 1 on cancellation and 2 on failure."""
+import subprocess
 import sys
+
+
+def translate(key):
+  return subprocess.check_output(['omarchy-i18n', key], text=True)
 
 
 def compose_text():
@@ -10,18 +15,19 @@ def compose_text():
   from gi.repository import Gdk, GLib, Gtk
 
   GLib.set_prgname('omarchy-share-text')
-  GLib.set_application_name('Share Text')
-  dialog = Gtk.Dialog(title='Share Text', modal=True)
+  title = translate('share.textTitle')
+  GLib.set_application_name(title)
+  dialog = Gtk.Dialog(title=title, modal=True)
   dialog.set_default_size(620, 360)
-  dialog.add_button('_Cancel', Gtk.ResponseType.CANCEL)
-  next_button = dialog.add_button('_Choose device', Gtk.ResponseType.OK)
+  dialog.add_button(translate('share.textCancel'), Gtk.ResponseType.CANCEL)
+  next_button = dialog.add_button(translate('share.textChooseDevice'), Gtk.ResponseType.OK)
   next_button.set_sensitive(False)
   next_button.get_style_context().add_class('suggested-action')
 
   content = dialog.get_content_area()
   content.set_border_width(16)
   content.set_spacing(12)
-  label = Gtk.Label(label='Type or paste text to share with LocalSend.')
+  label = Gtk.Label(label=translate('share.textPrompt'))
   label.set_xalign(0)
   content.pack_start(label, False, False, 0)
   editor = Gtk.TextView()
@@ -34,7 +40,7 @@ def compose_text():
   scroll.set_shadow_type(Gtk.ShadowType.IN)
   scroll.add(editor)
   content.pack_start(scroll, True, True, 0)
-  hint = Gtk.Label(label='Ctrl+Enter to choose a device • Esc to cancel')
+  hint = Gtk.Label(label=translate('share.textHint'))
   hint.set_xalign(0)
   content.pack_start(hint, False, False, 0)
   buffer = editor.get_buffer()

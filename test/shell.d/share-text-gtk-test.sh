@@ -7,6 +7,9 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 require_command python3
 require_command timeout
 
+export OMARCHY_PATH=$ROOT
+export PATH="$ROOT/bin:$PATH"
+
 if ! timeout 20 python3 - <<'PY'
 import sys
 try:

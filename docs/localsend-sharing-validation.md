@@ -245,3 +245,117 @@ Neither PR has been merged.
 
 </details>
 
+
+
+## Composer catalog integration, October 19, 2026 EDT
+
+The composer now reads its application/window title, Cancel and Choose device buttons, prompt and shortcut hint through `omarchy-i18n`. Five English `share.text*` keys are added to `cli.json`; other locale catalogs and the translation manifest remain unchanged, following the English-first PR workflow. Missing and empty translations fall back through the existing helper. Translation output is passed as label text without shell evaluation and does not enter the shared message. The CLI catalog-reference check now includes the Python composer, and the real GTK harness explicitly selects this checkout's runtime/catalogs.
+
+Validation on the candidate and unchanged `f7f95b835c241927aef19458a3e9692e96ed3bb1` baseline:
+
+- The new `share-text-i18n-test.sh` first failed two selected-language assertions on the original composer. All four cases pass after the change: all visible labels use a synthetic German fixture, partial/empty translations fall back to English, English is retained, and an unknown language falls back. These execute the real composer and `omarchy-i18n` with isolated catalogs; only GTK is replaced because introspection/display support is unavailable. Cancellation emits no UI text to the sharing payload.
+- `share-text-test.sh`: 27 tests, no failures, one GTK/GDK import check skipped; real menu-parser assertion passes. `share-text-gtk-test.sh` skips because GTK/display support is absent. No fresh rendered-UI acceptance is claimed for this localization change; earlier English GUI evidence above remains historical.
+- Structural catalog, placeholder and key-reference checks in `I18N_STRUCTURAL=1 bash test/shell.d/i18n-test.sh` pass through the catalog checks. The complete script fails later in unchanged locale generation: this root container has no installed `/usr/share/omarchy/default/i18n/locales.json`. It is not a complete green i18n run. An unprivileged retry was unavailable because changing groups is denied by the execution environment.
+- `python3 scripts/i18n-sync.py extract-scan --check`: no candidates, menu catalog current, keybindings catalog current. Python compilation, Bash syntax and `git diff --check` pass. ShellCheck is not installed in this environment.
+- Both complete aggregate runs used `I18N_STRUCTURAL=1 ./test/all`. Baseline: 91 failures among 453 shell-test files; candidate: the identical 91 failures among 454 files. Both have skipped checks in 82 files. Both CLI runs stop at the same `theme template mix helper works` assertion. There are no newly failing shell-test files, but neither full suite is green. These results supersede no earlier environment's results.
+
+The identical failing shell-test files are listed below so the failed aggregate run is not mistaken for successful acceptance:
+
+<details>
+<summary>Baseline and candidate failures in this environment</summary>
+
+- `test/shell.d/agent-account-copy-test.sh`
+- `test/shell.d/agent-account-exec-test.sh`
+- `test/shell.d/agent-account-recovery-test.sh`
+- `test/shell.d/agent-account-test.sh`
+- `test/shell.d/ascii-test.sh`
+- `test/shell.d/bar-text-color-test.sh`
+- `test/shell.d/battery-status-test.sh`
+- `test/shell.d/bind-hold-test.sh`
+- `test/shell.d/brave-widevine-test.sh`
+- `test/shell.d/browser-handoff-test.sh`
+- `test/shell.d/browser-policy-dir-test.sh`
+- `test/shell.d/clipboard-test.sh`
+- `test/shell.d/config-test.sh`
+- `test/shell.d/crash-capture-test.sh`
+- `test/shell.d/default-agent-test.sh`
+- `test/shell.d/default-apps-test.sh`
+- `test/shell.d/dev-link-test.sh`
+- `test/shell.d/dev-unlink-test.sh`
+- `test/shell.d/dictation-test.sh`
+- `test/shell.d/drive-password-test.sh`
+- `test/shell.d/elsewhen-greetings-test.sh`
+- `test/shell.d/elsewhen-model-test.sh`
+- `test/shell.d/factory-reset-accounts-test.sh`
+- `test/shell.d/hermes-cli-test.sh`
+- `test/shell.d/hermes-desktop-install-test.sh`
+- `test/shell.d/hermes-remove-test.sh`
+- `test/shell.d/hw-hybrid-gpu-test.sh`
+- `test/shell.d/hw-nvidia-test.sh`
+- `test/shell.d/hyprland-binding-conflicts-test.sh`
+- `test/shell.d/hyprland-default-config-test.sh`
+- `test/shell.d/hyprland-floating-workspaces-test.sh`
+- `test/shell.d/hyprland-jis-bindings-test.sh`
+- `test/shell.d/hyprland-keyboard-layout-test.sh`
+- `test/shell.d/hyprland-paths-test.sh`
+- `test/shell.d/hyprland-qconsole-test.sh`
+- `test/shell.d/hyprland-shutdown-test.sh`
+- `test/shell.d/hyprland-startup-cursor-test.sh`
+- `test/shell.d/hyprland-window-close-all-test.sh`
+- `test/shell.d/hyprland-window-transparency-test.sh`
+- `test/shell.d/hyprland-workspace-layout-test.sh`
+- `test/shell.d/i18n-test.sh`
+- `test/shell.d/input-indicator-test.sh`
+- `test/shell.d/keybindings-menu-test.sh`
+- `test/shell.d/launch-browser-test.sh`
+- `test/shell.d/legacy-power-udev-rules-migration-test.sh`
+- `test/shell.d/locale-sudoers-test.sh`
+- `test/shell.d/locate-test.sh`
+- `test/shell.d/menu-images-test.sh`
+- `test/shell.d/menu-keybindings-key-names-test.sh`
+- `test/shell.d/menu-plugin-test.sh`
+- `test/shell.d/migrate-notify-test.sh`
+- `test/shell.d/mise-work-path-test.sh`
+- `test/shell.d/monitor-modeless-test.sh`
+- `test/shell.d/neovim-remote-yanks-test.sh`
+- `test/shell.d/nopasswd-sudo-expiry-test.sh`
+- `test/shell.d/openclaw-cli-test.sh`
+- `test/shell.d/openclaw-onboard-test.sh`
+- `test/shell.d/pacman-templates-test.sh`
+- `test/shell.d/passwordless-grant-lifecycle-test.sh`
+- `test/shell.d/passwordless-sudo-indicator-test.sh`
+- `test/shell.d/pkg-drop-test.sh`
+- `test/shell.d/plugin-watcher-reap-test.sh`
+- `test/shell.d/plymouth-set-test.sh`
+- `test/shell.d/powerprofiles-set-test.sh`
+- `test/shell.d/provision-owner-keyboard-test.sh`
+- `test/shell.d/provision-user-test.sh`
+- `test/shell.d/retired-installer-artifacts-migration-test.sh`
+- `test/shell.d/screenrecording-process-test.sh`
+- `test/shell.d/screenrecording-test.sh`
+- `test/shell.d/screenrecording-wf-audio-test.sh`
+- `test/shell.d/screensaver-workspace-test.sh`
+- `test/shell.d/security-fingerprint-remove-test.sh`
+- `test/shell.d/shell-ipc-socket-test.sh`
+- `test/shell.d/shell-shortcuts-test.sh`
+- `test/shell.d/sleep-lock-test.sh`
+- `test/shell.d/snapper-timeline-leak-test.sh`
+- `test/shell.d/sshd-hardening-migration-test.sh`
+- `test/shell.d/system-power-test.sh`
+- `test/shell.d/system-sleep-ownership-migration-test.sh`
+- `test/shell.d/terminal-cwd-test.sh`
+- `test/shell.d/theme-set-budget-test.sh`
+- `test/shell.d/theme-set-tmux-test.sh`
+- `test/shell.d/theme-staging-test.sh`
+- `test/shell.d/theme-templates-test.sh`
+- `test/shell.d/toggle-input-device-test.sh`
+- `test/shell.d/update-lock-test.sh`
+- `test/shell.d/update-orphan-test.sh`
+- `test/shell.d/update-restart-kernel-test.sh`
+- `test/shell.d/update-stay-awake-security-test.sh`
+- `test/shell.d/webapp-install-escaping-test.sh`
+- `test/shell.d/windows-vm-mount-boundary-test.sh`
+
+</details>
+
+The latest pre-fix upstream translation workflow was awaiting maintainer approval. Publishing this commit does not approve upstream Actions or establish that the updated workflow ran. The localization review thread remains for upstream review.
