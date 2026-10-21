@@ -125,6 +125,7 @@ for delay in 1 110; do
   wait_until "fade-reopen trial completes ($delay ms launch)" 15 trial_finished "$delay"
   jq -e --argjson late "$([[ $delay == 110 ]] && echo true || echo false)" '
     .phase == "done" and .error == "" and .fadeDuration > 0 and .retainedMapping
+    and .activationLost and .activationGained and .windowActiveAtEscape
     and .escapeCount == 1 and .targetFocusedAtEscape and (.mapped | not) and (.open | not)
     and .primedAtEscape == $late
   ' "$ARTIFACTS/fade-$delay.json" >/dev/null || fail "single Escape closes a mapped fade reopen across the focus-prime boundary" "$(cat "$ARTIFACTS/fade-$delay.json")"

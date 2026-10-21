@@ -53,7 +53,7 @@ omarchy-shell() {
       local fade=0
       [[ $(cat "$PANEL_TEST_STATE/style") != "true" ]] || fade=140
       jq -cn --arg phase "$(cat "$PANEL_TEST_STATE/phase")" --argjson fade "$fade" --argjson late "$(cat "$PANEL_TEST_STATE/late")" \
-        '{phase:$phase,error:"",fadeDuration:$fade,retainedMapping:true,escapeCount:1,targetFocusedAtEscape:true,mapped:false,open:false,primedAtEscape:$late}'
+        '{phase:$phase,error:"",activationLost:true,activationGained:true,windowActiveAtEscape:true,fadeDuration:$fade,retainedMapping:true,escapeCount:1,targetFocusedAtEscape:true,mapped:false,open:false,primedAtEscape:$late}'
       ;;
     *) return 2 ;;
   esac

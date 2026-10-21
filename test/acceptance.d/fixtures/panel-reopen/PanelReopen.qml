@@ -25,6 +25,27 @@ Item {
   property double escapeAt: 0
   property bool primedAtEscape: false
   property bool targetFocusedAtEscape: false
+  property bool windowActiveAtEscape: false
+  property bool activationLost: false
+  property bool activationGained: false
+  property bool escapePending: false
+  readonly property bool observedWindowActive: panel.focusTarget ? panel.focusTarget.Window.active : false
+
+  onObservedWindowActiveChanged: observeWindowActivation()
+
+  function observeWindowActivation() {
+    if (root.phase !== "closing-for-reopen" && root.phase !== "waiting-for-escape") return
+    if (!root.observedWindowActive) root.activationLost = true
+    else if (root.phase === "waiting-for-escape" && root.activationLost) root.activationGained = true
+    root.sendEscapeWhenReady()
+  }
+
+  function sendEscapeWhenReady() {
+    if (!root.escapePending || root.phase !== "waiting-for-escape" || !root.activationGained || !root.observedWindowActive) return
+    if (root.escapeDelay === 1 && panel.focusPrimed) { root.abort("keyboard activation missed the early focus-prime window"); return }
+    root.escapePending = false
+    escapeProcess.running = true
+  }
 
   function abort(message) {
     error = message
@@ -33,6 +54,7 @@ Item {
     reopen.stop()
     sendEscape.stop()
     deadline.stop()
+    escapePending = false
     opened = false
   }
 
@@ -49,6 +71,10 @@ Item {
     escapeAt = 0
     retainedMapping = false
     targetFocusedAtEscape = false
+    windowActiveAtEscape = false
+    activationLost = false
+    activationGained = false
+    escapePending = false
     primedAtEscape = false
     phase = "warming"
     opened = true
@@ -60,6 +86,7 @@ Item {
     reopen.stop()
     sendEscape.stop()
     deadline.stop()
+    escapePending = false
     opened = false
     phase = "idle"
   }
@@ -73,6 +100,9 @@ Item {
     }
     function begin(): bool {
       if (root.phase !== "ready") { root.abort("initial panel is not ready"); return false }
+      if (!root.observedWindowActive) { root.abort("initial panel window is not active"); return false }
+      root.activationLost = false
+      root.activationGained = false
       root.unmapsBeforeClose = root.unmaps
       root.phase = "closing-for-reopen"
       root.opened = false
@@ -82,6 +112,9 @@ Item {
     }
     function state(): string {
       return JSON.stringify({phase: root.phase, error: root.error,
+        activationLost: root.activationLost, activationGained: root.activationGained,
+        escapePending: root.escapePending, windowActive: root.observedWindowActive,
+        windowActiveAtEscape: root.windowActiveAtEscape,
         fadeDuration: Style.duration(140), mapped: panel.backingWindowVisible,
         open: root.opened, unmaps: root.unmaps,
         unmapsBeforeClose: root.unmapsBeforeClose, retainedMapping: root.retainedMapping,
@@ -132,6 +165,7 @@ Item {
         root.escapeAt = Date.now()
         root.primedAtEscape = panel.focusPrimed
         root.targetFocusedAtEscape = activeFocus
+        root.windowActiveAtEscape = Window.active
         root.phase = "closing-after-escape"
         root.opened = false
       }
@@ -169,7 +203,7 @@ Item {
   }
   Timer {
     id: sendEscape
-    onTriggered: escapeProcess.running = true
+    onTriggered: { root.escapePending = true; root.sendEscapeWhenReady() }
   }
   Process {
     id: escapeProcess
@@ -179,6 +213,6 @@ Item {
   Timer {
     id: deadline
     interval: 15000
-    onTriggered: root.abort("one Escape did not close the fade-reopened panel")
+    onTriggered: root.abort(root.escapePending ? "panel window did not reactivate before Escape" : "one Escape did not close the fade-reopened panel")
   }
 }
