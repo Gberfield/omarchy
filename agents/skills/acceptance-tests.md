@@ -22,6 +22,12 @@ cd ../omarchy-iso
 
 Use `--sync-all ../omarchy` instead of `--sync-omarchy ../omarchy` when the
 acceptance run must exercise local `bin/`, `config/`, or `shell/` source too.
+Verify the actual running configuration with `quickshell list -a -j` and compare the loaded runtime tree's hashes with the tested source; copying the suite or a second source tree does not update an already running shell. When testing an alternate complete runtime, launch it through the guest compositor's session with its explicit `OMARCHY_PATH`. Do not start it with `nohup` over SSH: exporting the Wayland environment does not change the caller's session provenance, and background NetworkManager requests can then produce authentication prompts that intercept keyboard tests.
+
+Panel keyboard tests reject unexpected layer surfaces and retain the compositor layer JSON before sending input. This is an isolated-context precondition, not a claim that layer existence proves keyboard ownership. Inspect and fix the test context instead of dismissing authentication, sending another Escape, or extending the wait.
+
+`panels-test.sh` retains its immediate hide/re-summon Escape assertion. IPC latency and disabled animations mean that assertion alone does not prove a fade reopen. `panel-reopen-test.sh` temporarily loads a test-only plugin into the whole running shell, enables animations and restores the previous setting afterward. The fixture uses the real `KeyboardPanel`, checks positive fade duration and no intervening backing-window unmap, sends one Escape per case, and records actual key arrival and focus-prime state. It fails if the intended before/after-prime coverage is not exercised. Its plugin and shell configuration are removed/restored on exit; no production component hooks or additional Quickshell process are used.
+
 Changes to package manifests, installation, finalization, or shipped defaults
 require a fresh ISO built from the local checkouts and a run without
 `--reuse-base`:
