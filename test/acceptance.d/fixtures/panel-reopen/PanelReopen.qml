@@ -66,6 +66,11 @@ Item {
 
   ShellIpc {
     target: "acceptance.panel-reopen"
+    function refreshStyle(): bool {
+      if (Style.animationsProc.running) return false
+      Style.refresh()
+      return true
+    }
     function begin(): bool {
       if (root.phase !== "ready") { root.abort("initial panel is not ready"); return false }
       root.unmapsBeforeClose = root.unmaps

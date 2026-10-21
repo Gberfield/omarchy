@@ -3,9 +3,11 @@
 # Sourced by panel acceptance tests. Unexpected layer surfaces invalidate the
 # isolated keyboard context; their presence alone does not prove who has focus.
 assert_panel_keyboard_context() {
-  local allowed unexpected
-  if ! hyprctl -j layers > "$ARTIFACTS/panel-keyboard-layers.json" 2> "$ARTIFACTS/panel-keyboard-layers.stderr"; then
-    fail "panel keyboard context can be inspected" "Compositor query failed; see panel-keyboard-layers.json and .stderr"
+  local allowed unexpected context=${0##*/}
+  context=${context%.sh}
+  local snapshot="$ARTIFACTS/$context-keyboard-layers"
+  if ! hyprctl -j layers > "$snapshot.json" 2> "$snapshot.stderr"; then
+    fail "panel keyboard context can be inspected ($context)" "Compositor query failed; see $snapshot.json and .stderr"
   fi
 
   allowed=$(jq -cn --args '["omarchy-background", "omarchy-bar", "omarchy-dock", "omarchy-notifications", "omarchy-keyboard-panel", "omarchy-keyboard-panel-dismiss"] + $ARGS.positional' "$@")
@@ -21,10 +23,10 @@ assert_panel_keyboard_context() {
         | select(. != "owe-background" or $level != "0")
         | select(. as $ns | $allowed | index($ns) | not)] | unique
     end
-  ' "$ARTIFACTS/panel-keyboard-layers.json" 2>> "$ARTIFACTS/panel-keyboard-layers.stderr"); then
-    fail "panel keyboard context can be inspected" "Invalid layer data; see panel-keyboard-layers.json and .stderr"
+  ' "$snapshot.json" 2>> "$snapshot.stderr"); then
+    fail "panel keyboard context can be inspected ($context)" "Invalid layer data; see $snapshot.json and .stderr"
   fi
   if [[ $unexpected != "[]" ]]; then
-    fail "panel keyboard context has no unexpected layer surfaces" "Unexpected surfaces: $unexpected. Keyboard step aborted; inspect panel-keyboard-layers.json."
+    fail "panel keyboard context has no unexpected layer surfaces ($context)" "Unexpected surfaces: $unexpected. Keyboard step aborted; inspect $snapshot.json."
   fi
 }
