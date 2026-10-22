@@ -62,6 +62,12 @@ wait_bar() {
 }
 
 for edge in top bottom left right; do
+  # Exercise normal context churn and send real input between edge batches.
+  # Long command-only runs can otherwise be covered by the idle screensaver.
+  omarchy-shell shell summon omarchy.menu '{"menu":"root"}' >/dev/null
+  wait_until "root menu opens before $edge reveals" 15 layer_on_overlay omarchy-menu
+  wtype -k Escape
+  wait_until "root menu closes before $edge reveals" 15 layer_absent omarchy-menu
   omarchy-bar position "$edge" >/dev/null
   for ((cycle = 1; cycle <= 20; cycle++)); do
     omarchy-toggle-bar on >/dev/null

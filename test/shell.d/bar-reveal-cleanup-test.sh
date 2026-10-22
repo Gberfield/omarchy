@@ -40,6 +40,9 @@ quickshell() {
   fi
 }
 layer_absent() { return 1; }
+omarchy-shell() { :; }
+wait_until() { :; }
+wtype() { :; }
 hyprctl() { printf '{}\n'; }
 screenshot() { touch "$HOME/unexpected-capture"; }
 fail() { exit 1; }
