@@ -66,7 +66,10 @@ for edge in top bottom left right; do
   # Long command-only runs can otherwise be covered by the idle screensaver.
   omarchy-shell shell summon omarchy.menu '{"menu":"root"}' >/dev/null
   wait_until "root menu opens before $edge reveals" 15 layer_on_overlay omarchy-menu
+  # This is bar-context churn, not keyboard-readiness acceptance. Close through
+  # IPC even if the input arrives before the menu's keyboard focus is ready.
   wtype -k Escape
+  omarchy-shell shell hide omarchy.menu >/dev/null
   wait_until "root menu closes before $edge reveals" 15 layer_absent omarchy-menu
   omarchy-bar position "$edge" >/dev/null
   for ((cycle = 1; cycle <= 20; cycle++)); do
