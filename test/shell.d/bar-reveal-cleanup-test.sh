@@ -1,6 +1,8 @@
 #!/bin/bash
 
-source "$(dirname "$0")/base-test.sh"
+set -euo pipefail
+
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
 require_command jq
 
@@ -40,9 +42,14 @@ quickshell() {
   fi
 }
 layer_absent() { return 1; }
-omarchy-shell() { :; }
+omarchy-shell() {
+  case "$2" in
+    summon) touch "$HOME/menu-open" ;;
+    hide) rm -f "$HOME/menu-open" ;;
+  esac
+}
 wait_until() { :; }
-wtype() { :; }
+wtype() { [[ ${TEST_FAILURE:-} != "input" ]]; }
 hyprctl() { printf '{}\n'; }
 screenshot() { touch "$HOME/unexpected-capture"; }
 fail() { exit 1; }
@@ -82,3 +89,17 @@ for visibility in shown hidden; do
     fail "shell-change failure evidence survives cleanup"
   pass "shell-change evidence survives cleanup without a capture ($visibility)"
 done
+
+# An input failure occurs after the menu has mapped but before the ordinary
+# hide call. Run the real EXIT trap so cleanup cannot pass by inspecting source.
+case_home="$fixture/input-failure"
+mkdir -p "$case_home/.local/state/omarchy/toggles"
+printf 'right\n' >"$case_home/position"
+if HOME="$case_home" TEST_SHELL_PID="$$" TEST_FAILURE=input bash "$fixture/bar-reveal-test.sh" >"$case_home/output" 2>&1; then
+  fail "input failure invalidates acceptance"
+fi
+[[ ! -f $case_home/menu-open ]] || fail "cleanup closes the menu after input failure"
+pass "cleanup closes the menu after input failure"
+[[ $(cat "$case_home/position") == "right" && ! -f $case_home/.local/state/omarchy/toggles/bar-off ]] ||
+  fail "input failure restores original bar settings"
+pass "input failure restores original bar settings"

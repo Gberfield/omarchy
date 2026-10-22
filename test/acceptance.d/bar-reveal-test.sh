@@ -12,6 +12,8 @@ original_stat=$(cat "/proc/$shell_pid/stat")
 original_start=$(awk '{print $20}' <<<"${original_stat##*) }")
 
 cleanup() {
+  # Input can fail after summon but before the normal menu close below.
+  omarchy-shell shell hide omarchy.menu >/dev/null 2>&1 || true
   # These settings persist on disk even if the shell exits or is replaced.
   omarchy-bar position "$original_position" >/dev/null 2>&1 || true
   if $original_hidden; then
