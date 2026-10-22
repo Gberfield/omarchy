@@ -12,7 +12,7 @@ original_stat=$(cat "/proc/$shell_pid/stat")
 original_start=$(awk '{print $20}' <<<"${original_stat##*) }")
 
 cleanup() {
-  same_shell || return 0
+  # These settings persist on disk even if the shell exits or is replaced.
   omarchy-bar position "$original_position" >/dev/null 2>&1 || true
   if $original_hidden; then
     omarchy-toggle-bar on >/dev/null 2>&1 || true
