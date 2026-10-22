@@ -110,8 +110,8 @@ assert(
     /implicitHeight: root\.vertical \? 0 : thickness/.test(barSource),
   'bar height is floored at the cutout, never shrunk to it'
 )
-// A hidden bar parks by that same thickness (bar-test.sh), so a floored top
-// bar leaves no strip of itself on screen.
+// A hidden bar unmaps regardless of its notch floor; the graphical reveal test
+// checks that no bar surface remains while hidden.
 
 // The calibration must not scale with the font: it describes physical pixels
 // beside the camera.

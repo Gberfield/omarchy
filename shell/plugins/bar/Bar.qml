@@ -38,8 +38,8 @@ Item {
     function metadataFor(id) { return null }
   }
   // Mirrors the on-disk `bar-off` flag so the user can hide the bar without
-  // killing the entire shell. Hidden panels stay mapped but park off-screen
-  // without an exclusion zone; updated by the FileView watcher further down.
+  // killing the entire shell. Hidden bars unmap; panels keep their own surfaces.
+  // Updated by the FileView watcher further down.
   property bool barHidden: false
   property string home: Quickshell.env("HOME")
   property string stateHome: home + "/.local/state"
@@ -507,7 +507,18 @@ Item {
 
   function slotWindow(slot) {
     if (!slot) return null
-    return targetWindow(slot.activeItem) || targetWindow(slot)
+    // The slot retains its logical window even when hide destroys the backing
+    // window and QsWindow.window no longer resolves through the item tree.
+    return slot.window || targetWindow(slot.activeItem) || targetWindow(slot)
+  }
+
+  function panelWindowFor(widget) {
+    if (!widget) return null
+    for (var i = 0; i < moduleSlots.length; i++) {
+      var slot = moduleSlots[i]
+      if (slot && slot.activeItem === widget) return slotWindow(slot)
+    }
+    return null
   }
 
   function sameWindow(left, right) {
@@ -1541,7 +1552,7 @@ Item {
     // instead of growing once the windows are laid out. The wait ends once, for
     // good: when the mode settles it, or after two seconds without one.
     visible: !root.barHidden && !remapGuard.remapping && (cutoutWaitOver || !cutoutPending)
-    exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Auto
+    exclusionMode: ExclusionMode.Auto
 
     ScreenMoveRemap {
       id: remapGuard
@@ -2159,13 +2170,12 @@ Item {
 
     Repeater {
       // Keyed rows, so a config change or a drag only adds, moves and removes
-      // the slots and spacers that changed. A list makes no slots while it is
-      // hidden, where they would hold their widgets out of sight, or before it
-      // has the pool its slots take their widgets from, as the tray's drawer
-      // section until its slot hands it one.
+      // the slots and spacers that changed. Inactive sections have no window;
+      // a drawer also waits for its pool. Do not gate on inherited visibility:
+      // unmapping the bar would remove every slot and unload its panels.
       model: ScriptModel {
         objectProp: "key"
-        values: moduleListRoot.visible && moduleListRoot.pool ? moduleListRoot.listRows : []
+        values: moduleListRoot.window && moduleListRoot.pool ? moduleListRoot.listRows : []
       }
 
       delegate: DelegateChooser {
