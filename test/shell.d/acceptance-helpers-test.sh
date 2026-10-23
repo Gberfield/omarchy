@@ -78,6 +78,19 @@ hyprctl() {
   elif [[ $1 == output && $2 == remove ]]; then
     [[ $(cat "$OWNED_OUTPUT") == "$3" ]] && rm "$OWNED_OUTPUT"
   elif [[ $1 == -j && $2 == monitors ]]; then
+    if [[ ${COLLISION:-false} == true ]]; then
+      name="omarchy-overlay-$$-$virtual_sequence"
+      if [[ ! -e $OWNED_OUTPUT.initialized ]]; then
+        printf '%s' "$name" > "$OWNED_OUTPUT"
+        touch "$OWNED_OUTPUT.initialized"
+      fi
+      if [[ -e $OWNED_OUTPUT ]]; then
+        printf '[{"name":"Virtual-1","x":0,"y":0},{"name":"%s","x":1280,"y":0}]\n' "$name"
+      else
+        printf '[{"name":"Virtual-1","x":0,"y":0}]\n'
+      fi
+      return
+    fi
     printf '%s\n' '[{"name":"Virtual-1","x":0,"y":0,"width":1280,"height":800,"scale":1}]'
   elif [[ $1 == cursorpos ]]; then
     printf '640, 400\n'
@@ -85,11 +98,16 @@ hyprctl() {
   return 0
 }
 omarchy-shell() { return 0; }
+fail() { return 1; }
 wait_until() { return 1; }
 '''
     driver += '\n'.join(functions) + '\ntrap cleanup EXIT\ncreate_source_monitor\n'
     result = subprocess.run(['bash', '-c', driver], env=dict(os.environ, OWNED_OUTPUT=str(owned)), capture_output=True, text=True, timeout=10)
     assert result.returncode == 1, (result.returncode, result.stderr)
     assert not owned.exists(), 'output created before failed discovery must be removed'
+    collision = subprocess.run(['bash', '-c', driver], env=dict(os.environ, OWNED_OUTPUT=str(owned), COLLISION='true'), capture_output=True, text=True, timeout=10)
+    assert collision.returncode == 1, (collision.returncode, collision.stderr)
+    assert owned.exists(), 'a pre-existing colliding output must never become owned by cleanup'
 print('ok - failed overlay monitor discovery removes its owned output')
+print('ok - a colliding output remains untouched')
 PY

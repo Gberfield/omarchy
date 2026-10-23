@@ -74,9 +74,11 @@ monitor_contains() {
 }
 
 create_source_monitor() {
+  local name
   ((virtual_sequence += 1))
-  virtual_monitor="omarchy-overlay-$$-$virtual_sequence"
-  hyprctl -j monitors | jq -e --arg name "$virtual_monitor" 'all(.[]; .name != $name)' >/dev/null || fail "temporary monitor name is unused"
+  name="omarchy-overlay-$$-$virtual_sequence"
+  hyprctl -j monitors | jq -e --arg name "$name" 'all(.[]; .name != $name)' >/dev/null || fail "temporary monitor name is unused"
+  virtual_monitor="$name"
   hyprctl output create headless "$virtual_monitor" >/dev/null
   wait_until "temporary overlay monitor appears" 15 monitor_is_present
   hyprctl eval "hl.monitor({ output = \"$virtual_monitor\", mode = \"1920x${tall_height}@60\", position = \"auto\", scale = 1 })" >/dev/null
