@@ -36,15 +36,18 @@ screen_contains() {
   local text="$1"
   local snapshot="/tmp/omarchy-acceptance-ocr-$$.png"
 
-  # Sparse-text OCR can split phrases across lines or misread scaled glyphs.
-  # Try native and doubled captures, preserving exact words when matching.
-  local scale
+  # Sparse segmentation can omit an entire low-contrast prompt. Fall back
+  # to automatic page segmentation on the same capture before changing scale.
+  local scale mode
   for scale in 1 2; do
-    if timeout 10 grim -s "$scale" "$snapshot" 2>/dev/null &&
-      tesseract "$snapshot" stdout --psm 11 2>/dev/null |
-        tr -s '[:space:]' ' ' | grep -Fi -- "$text" >/dev/null; then
-      rm -f "$snapshot"
-      return 0
+    if timeout 10 grim -s "$scale" "$snapshot" 2>/dev/null; then
+      for mode in 11 3; do
+        if tesseract "$snapshot" stdout --psm "$mode" 2>/dev/null |
+          tr -s '[:space:]' ' ' | grep -Fi -- "$text" >/dev/null; then
+          rm -f "$snapshot"
+          return 0
+        fi
+      done
     fi
   done
   rm -f "$snapshot"

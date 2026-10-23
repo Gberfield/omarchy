@@ -65,6 +65,11 @@ grim() {
 }
 
 tesseract() {
+  if [[ ${auto_page_text:-} && $4 == "3" ]]; then
+    printf '%s\n' "$auto_page_text"
+    [[ ${ocr_fails:-false} == "false" ]]
+    return
+  fi
   case $(cat "$1") in
   1) printf '%s\n' "$native_text" ;;
   2) printf '%s\n' "$doubled_text" ;;
@@ -123,3 +128,17 @@ if screen_contains "Acceptance notification"; then
   fail "OCR rejects failed captures"
 fi
 pass "OCR rejects failed captures"
+
+# The real reminder prompt was visible but sparse segmentation missed it.
+capture_fails=false
+native_text="unreadable"
+doubled_text="unreadable"
+auto_page_text="Reminder message..."
+screen_contains "Reminder message" || fail "OCR falls back when sparse segmentation misses a visible prompt"
+[[ ! -e $ocr_snapshot ]] || fail "OCR fallback removes its capture"
+pass "OCR falls back when sparse segmentation misses a visible prompt"
+if screen_contains "Absent prompt"; then
+  fail "OCR fallback rejects absent text"
+fi
+[[ ! -e $ocr_snapshot ]] || fail "OCR fallback removes a missed capture"
+pass "OCR fallback rejects absent text and cleans up"
