@@ -35,7 +35,10 @@ Item {
 
   function observeWindowActivation() {
     if (root.phase !== "closing-for-reopen" && root.phase !== "waiting-for-escape") return
-    if (!root.observedWindowActive) root.activationLost = true
+    if (!root.observedWindowActive) {
+      root.activationLost = true
+      if (root.phase === "closing-for-reopen") Qt.callLater(root.reopenAfterFocusRelease)
+    }
     else if (root.phase === "waiting-for-escape" && root.activationLost) root.activationGained = true
     root.sendEscapeWhenReady()
   }
@@ -51,7 +54,6 @@ Item {
     error = message
     phase = "failed"
     warmup.stop()
-    reopen.stop()
     sendEscape.stop()
     deadline.stop()
     escapePending = false
@@ -83,7 +85,6 @@ Item {
 
   function close() {
     warmup.stop()
-    reopen.stop()
     sendEscape.stop()
     deadline.stop()
     escapePending = false
@@ -106,7 +107,6 @@ Item {
       root.unmapsBeforeClose = root.unmaps
       root.phase = "closing-for-reopen"
       root.opened = false
-      reopen.restart()
       deadline.restart()
       return true
     }
@@ -187,19 +187,20 @@ Item {
       root.phase = "ready"
     }
   }
-  Timer {
-    id: reopen
-    interval: 25
-    onTriggered: {
-      root.retainedMapping = !panel.open && panel.visible && panel.backingWindowVisible
-        && !panel.popoutSwitching && root.unmaps === root.unmapsBeforeClose
-      if (!root.retainedMapping) { root.abort("panel unmapped before fade reopen"); return }
-      root.phase = "waiting-for-escape"
-      root.opened = true
-      root.reopenedAt = Date.now()
-      sendEscape.interval = root.escapeDelay
-      sendEscape.restart()
-    }
+  // Qt defers activation notification until a Wayland sync. Reopening on a
+  // fixed timer can combine leave/enter into unchanged Window.active, so the
+  // later input gate waits forever. Observe release before requesting focus
+  // again; this must still happen during the real mapped fade.
+  function reopenAfterFocusRelease() {
+    if (root.phase !== "closing-for-reopen" || root.observedWindowActive) return
+    root.retainedMapping = !panel.open && panel.visible && panel.backingWindowVisible
+      && !panel.popoutSwitching && root.unmaps === root.unmapsBeforeClose
+    if (!root.retainedMapping) { root.abort("panel unmapped before fade reopen"); return }
+    root.phase = "waiting-for-escape"
+    root.opened = true
+    root.reopenedAt = Date.now()
+    sendEscape.interval = root.escapeDelay
+    sendEscape.restart()
   }
   Timer {
     id: sendEscape
