@@ -27,14 +27,17 @@ focus_monitor() {
 cleanup() {
   local status=$? cleanup_failed=0 x y
   trap - EXIT
-  omarchy-shell shell hide omarchy.menu >/dev/null 2>&1 || cleanup_failed=1
+  omarchy-shell shell hide omarchy.menu >/dev/null 2>&1 || { printf 'cleanup: menu close failed\n' >&2; cleanup_failed=1; }
   if [[ -n $virtual_monitor ]]; then
-    hyprctl output remove "$virtual_monitor" >/dev/null 2>&1 || cleanup_failed=1
+    hyprctl output remove "$virtual_monitor" >/dev/null 2>&1 || { printf 'cleanup: output removal failed\n' >&2; cleanup_failed=1; }
   fi
-  focus_monitor "$remaining_monitor" >/dev/null 2>&1 || cleanup_failed=1
-  hyprctl eval "hl.dispatch(hl.dsp.cursor.move({ x = $original_cursor_x, y = $original_cursor_y }))" >/dev/null 2>&1 || cleanup_failed=1
-  read -r x y < <(hyprctl cursorpos | tr ',' ' ') || cleanup_failed=1
-  [[ $x == "$original_cursor_x" && $y == "$original_cursor_y" ]] || cleanup_failed=1
+  focus_monitor "$remaining_monitor" >/dev/null 2>&1 || { printf 'cleanup: monitor focus failed\n' >&2; cleanup_failed=1; }
+  hyprctl eval "hl.dispatch(hl.dsp.cursor.move({ x = $original_cursor_x, y = $original_cursor_y }))" >/dev/null 2>&1 || { printf 'cleanup: pointer move failed\n' >&2; cleanup_failed=1; }
+  read -r x y < <(hyprctl cursorpos | tr ',' ' ') || { printf 'cleanup: pointer read failed\n' >&2; cleanup_failed=1; }
+  if [[ $x != "$original_cursor_x" || $y != "$original_cursor_y" ]]; then
+    printf 'cleanup: pointer restore mismatch: expected %s,%s; got %s,%s\n' "$original_cursor_x" "$original_cursor_y" "$x" "$y" >&2
+    cleanup_failed=1
+  fi
   if ((cleanup_failed)); then
     printf 'not ok - overlay monitor cleanup failed\n' >&2
     status=1

@@ -93,11 +93,11 @@ hyprctl() {
     fi
     printf '%s\n' '[{"name":"Virtual-1","x":0,"y":0,"width":1280,"height":800,"scale":1}]'
   elif [[ $1 == cursorpos ]]; then
-    printf '640, 400\n'
+    printf '%s\n' "${CURSOR_POSITION:-640, 400}"
   fi
   return 0
 }
-omarchy-shell() { return 0; }
+omarchy-shell() { return "${HIDE_STATUS:-0}"; }
 fail() { return 1; }
 wait_until() { return 1; }
 '''
@@ -108,6 +108,14 @@ wait_until() { return 1; }
     collision = subprocess.run(['bash', '-c', driver], env=dict(os.environ, OWNED_OUTPUT=str(owned), COLLISION='true'), capture_output=True, text=True, timeout=10)
     assert collision.returncode == 1, (collision.returncode, collision.stderr)
     assert owned.exists(), 'a pre-existing colliding output must never become owned by cleanup'
+    for factor, value, message in [('CURSOR_POSITION', '65, 64', 'pointer restore mismatch'),
+                                   ('HIDE_STATUS', '1', 'menu close failed')]:
+        owned.unlink(missing_ok=True)
+        failure = subprocess.run(['bash', '-c', driver], env=dict(os.environ, OWNED_OUTPUT=str(owned), **{factor:value}), capture_output=True, text=True, timeout=10)
+        assert failure.returncode == 1, (factor, failure.returncode)
+        assert message in failure.stderr, (factor, failure.stderr)
 print('ok - failed overlay monitor discovery removes its owned output')
 print('ok - a colliding output remains untouched')
+print('ok - cleanup identifies a pointer restoration mismatch')
+print('ok - cleanup identifies a menu close failure')
 PY
