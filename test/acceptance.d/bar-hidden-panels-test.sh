@@ -114,10 +114,16 @@ done
 
 # Hidden-panel routing must still choose the focused bar instance when its
 # backing window does not exist, including a newly connected output.
-hyprctl output create headless >/dev/null
+new_monitor_name="omarchy-hidden-panels-$BASHPID"
+if jq -e --arg name "$new_monitor_name" 'any(.[]; .name == $name)' <<<"$original_monitors" >/dev/null; then
+  fail "temporary monitor name is unused"
+fi
+# Own its name before creation: discovery itself can fail, and EXIT must
+# still remove this exact output without guessing among connected monitors.
+temporary_monitor=$new_monitor_name
+hyprctl output create headless "$temporary_monitor" >/dev/null
 find_temporary_monitor() {
-  temporary_monitor=$(hyprctl -j monitors | jq -r --argjson previous "$original_monitors" '[.[].name | select(. as $name | $previous | map(.name) | index($name) == null)][0] // empty')
-  [[ -n $temporary_monitor ]]
+  hyprctl -j monitors | jq -e --arg name "$temporary_monitor" 'any(.[]; .name == $name)'
 }
 wait_until "temporary monitor appears while bar hidden" 15 find_temporary_monitor
 hyprctl dispatch "hl.dsp.focus({ monitor = \"$temporary_monitor\" })" >/dev/null

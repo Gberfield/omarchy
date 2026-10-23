@@ -332,6 +332,10 @@ Item {
       _releasePopout: function(owner) { root.releasePluginPopout(key, owner) },
       _switchPanelFrom: function(owner, direction) { return root.switchPanelFrom(owner, direction) },
       _targetBelongsToWindow: function(target, window) { return root.targetBelongsToWindow(target, window) },
+      _panelWindowFor: function(widget) {
+        return root.moduleWidgets(moduleName).indexOf(widget) >= 0
+          ? root.panelWindowFor(widget) : null
+      },
       _moduleWidgets: function(requestedId) {
         return String(requestedId || "") === String(moduleName || "")
           ? root.moduleWidgets(moduleName) : []
@@ -1573,7 +1577,10 @@ Item {
     readonly property bool cutoutPending: BarModel.cutoutPending(root.displayCutouts, root.position, screen.name, screen.width, screen.height, screen.devicePixelRatio, panelMode)
     property bool cutoutWaitOver: false
     onCutoutPendingChanged: if (!cutoutPending) cutoutWaitOver = true
-    Component.onCompleted: if (!cutoutPending) cutoutWaitOver = true
+    Component.onCompleted: {
+      if (!cutoutPending) cutoutWaitOver = true
+      scheduleHiddenLayout()
+    }
 
     Timer {
       interval: 2000
@@ -1584,8 +1591,48 @@ Item {
     // The same thickness the bar publishes for its screen (screenBarSizes).
     readonly property int thickness: root.thicknessFor(screen)
 
-    implicitWidth: root.vertical ? thickness : 0
-    implicitHeight: root.vertical ? 0 : thickness
+    // Lay out slots before the first map too: a bar hidden from startup (or
+    // added on a new output while hidden) has no compositor-assigned extent.
+    implicitWidth: root.vertical ? thickness : (screen ? screen.width : 0)
+    implicitHeight: root.vertical ? (screen ? screen.height : 0) : thickness
+
+    // Unmapping detaches contentItem from its QQuickWindow. In Qt 6 a
+    // parentless item is effectively invisible: slots then measure every
+    // widget as zero, and an output never mapped has no usable layout at all.
+    // Keep a Qt-only layout parent while hidden. This window is never shown
+    // and creates no bar layer; Quickshell reparents the content on mapping.
+    Window {
+      id: hiddenLayoutWindow
+      visible: false
+      transientParent: null
+      width: barWindow.implicitWidth
+      height: barWindow.implicitHeight
+    }
+    property bool hiddenLayoutQueued: false
+
+    function scheduleHiddenLayout() {
+      if (backingWindowVisible || hiddenLayoutQueued) return
+      hiddenLayoutQueued = true
+      Qt.callLater(updateHiddenLayout)
+    }
+
+    function polishHiddenItem(item) {
+      for (var i = 0; i < item.children.length; i++) polishHiddenItem(item.children[i])
+      item.ensurePolished()
+    }
+
+    function updateHiddenLayout() {
+      hiddenLayoutQueued = false
+      if (backingWindowVisible) return
+      contentItem.parent = hiddenLayoutWindow.contentItem
+      contentItem.width = hiddenLayoutWindow.width
+      contentItem.height = hiddenLayoutWindow.height
+      polishHiddenItem(contentItem)
+    }
+
+    onBackingWindowVisibleChanged: scheduleHiddenLayout()
+    onImplicitWidthChanged: scheduleHiddenLayout()
+    onImplicitHeightChanged: scheduleHiddenLayout()
     color: root.transparent ? "transparent" : (root.glassy ? root.glassBackground : root.background)
     surfaceFormat.opaque: false
     WlrLayershell.namespace: "omarchy-bar"
@@ -2158,6 +2205,8 @@ Item {
     property var window: null
     // The bar surface's widgets, which the list's slots show (WidgetPool).
     property var pool: null
+    onChildrenChanged: if (window) window.scheduleHiddenLayout()
+    onWindowChanged: if (window) window.scheduleHiddenLayout()
     // Kept between updates, so a row stays the same object for as long as it
     // is shown (BarModel.sectionRows).
     property var rowMemo: ({})
@@ -2495,6 +2544,8 @@ Item {
     }
     readonly property real widgetWidth: host ? host.widgetWidth : 0
     readonly property real widgetHeight: host ? host.widgetHeight : 0
+    onWidgetWidthChanged: if (window) window.scheduleHiddenLayout()
+    onWidgetHeightChanged: if (window) window.scheduleHiddenLayout()
     // Its length along the bar. The dragged widget keeps its place's share
     // of the room: all of it until the room moves away.
     readonly property real alongLength: dragSource
