@@ -1627,7 +1627,9 @@ Item {
       contentItem.parent = hiddenLayoutWindow.contentItem
       contentItem.width = hiddenLayoutWindow.width
       contentItem.height = hiddenLayoutWindow.height
-      polishHiddenItem(contentItem)
+      // The proxy root's polish callback assumes a backing window. It has
+      // no layout of its own; only polish descendants while unmapped.
+      for (var i = 0; i < contentItem.children.length; i++) polishHiddenItem(contentItem.children[i])
     }
 
     onBackingWindowVisibleChanged: scheduleHiddenLayout()

@@ -798,3 +798,64 @@ put_output=$(PATH="$put_tmp/bin:$ROOT/bin:$PATH" \
   fail "put places a widget through a ready shell" "$put_output"
 [[ $put_output == "omarchy.keyboard-layout is on the bar" ]] || fail "put reports the placed widget" "$put_output"
 pass "put places a widget through a ready shell"
+
+# Execute the actual hidden-layout update with a proxy root that models the
+# upstream pending-mask callback's missing backing window. Only descendants
+# may be polished; the runtime card-position test covers the real Qt layout.
+run_node_test <<'JS'
+{
+  const fs = require('fs'), vm = require('vm')
+  const source = fs.readFileSync(root + '/shell/plugins/bar/Bar.qml', 'utf8')
+  const calls = []
+  const leaf = {children:[],ensurePolished(){calls.push('leaf')}}
+  const layout = {children:[leaf],ensurePolished(){calls.push('layout')}}
+  const proxyRoot = {children:[layout],ensurePolished(){throw new Error('proxy root polished with no backing window')}}
+  const hiddenLayoutWindow = {contentItem:{},width:1280,height:26}
+  const context = {contentItem:proxyRoot,hiddenLayoutWindow,backingWindowVisible:false,hiddenLayoutQueued:true}
+  vm.createContext(context)
+  for (const name of ['polishHiddenItem','updateHiddenLayout']) {
+    const match = source.match(new RegExp('    function '+name+'\\([^)]*\\) \\{([\\s\\S]*?)\\n    \\}'))
+    assert(!!match, name + ' is available to exercise')
+    vm.runInContext(match[0],context)
+  }
+  context.updateHiddenLayout()
+  assertEqual(proxyRoot.parent,hiddenLayoutWindow.contentItem,'hidden content attaches to its layout window')
+  assertEqual(proxyRoot.width,1280,'hidden content receives the layout width')
+  assertEqual(proxyRoot.height,26,'hidden content receives the layout height')
+  assertEqual(calls.join(','),'leaf,layout','hidden descendants polish without the proxy root callback')
+  context.backingWindowVisible = true
+  proxyRoot.parent = null
+  context.updateHiddenLayout()
+  assertEqual(proxyRoot.parent,null,'mapped content stays under Quickshell control')
+  assertEqual(calls.length,2,'mapped content receives no hidden polish')
+}
+JS
+
+# The plugin facade resolves only its own currently live widgets.
+run_node_test <<'JS'
+const fs = require('fs')
+const vm = require('vm')
+const api = fs.readFileSync(root + '/shell/Ui/PluginBarApi.qml', 'utf8')
+const start = api.indexOf('  function panelWindowFor(')
+assert(start >= 0, 'third-party bar facade exposes logical panel window lookup')
+const end = api.indexOf('\n  }', start)
+const widget = {}, window = {screen:{name:'test'}}
+const context = {_panelWindowFor: target => target === widget ? window : null}
+vm.createContext(context)
+vm.runInContext(api.slice(start, end + 4), context)
+assertEqual(context.panelWindowFor(widget), window, 'facade delegates its widget window')
+assertEqual(context.panelWindowFor({}), null, 'unknown widget has no logical window')
+context._panelWindowFor = null
+assertEqual(context.panelWindowFor(widget), null, 'detached facade has no stale window')
+const bar = fs.readFileSync(root + '/shell/plugins/bar/Bar.qml', 'utf8')
+const callback = bar.match(/_panelWindowFor: function\(widget\) \{([\s\S]*?)\n      \},/)
+assert(!!callback, 'bar wires a scoped logical-window callback')
+const own = {}, foreign = {}, logical = {}
+const scoped = {moduleName:'user.test',root:{moduleWidgets:id=>id==='user.test'?[own]:[],panelWindowFor:target=>logical}}
+vm.createContext(scoped)
+vm.runInContext('function lookup(widget) {' + callback[1] + '\n}', scoped)
+assertEqual(scoped.lookup(own), logical, 'plugin can resolve its own live widget')
+assertEqual(scoped.lookup(foreign), null, 'plugin cannot resolve a foreign widget')
+scoped.root.moduleWidgets = () => []
+assertEqual(scoped.lookup(own), null, 'removed widget cannot retain a logical window')
+JS

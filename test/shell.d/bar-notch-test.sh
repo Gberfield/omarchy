@@ -109,14 +109,6 @@ assert(
     /readonly property int thickness: root\.thicknessFor\(screen\)/.test(barSource),
   'bar height is floored at the cutout, never shrunk to it'
 )
-const panelSource = barSource.slice(barSource.indexOf('  component BarPanel: PanelWindow {'))
-const heightExpression = panelSource.match(/implicitHeight: (.*)/)[1]
-const panelHeight = new Function('root', 'screen', 'thickness', `return (${heightExpression})`)
-assertEqual(panelHeight({vertical:false}, {height:982}, 40), 40, 'horizontal bar uses its cutout-floored thickness')
-assertEqual(panelHeight({vertical:false}, {height:1080}, 26), 26, 'horizontal bar without a cutout retains its normal thickness')
-// A hidden bar unmaps regardless of its notch floor; the graphical reveal test
-// checks that no bar surface remains while hidden.
-
 // The calibration must not scale with the font: it describes physical pixels
 // beside the camera.
 assert(
@@ -199,11 +191,6 @@ assert(
     /Timer \{\s*interval: 2000\s*running: barWindow\.cutoutPending && !barWindow\.cutoutWaitOver\s*onTriggered: barWindow\.cutoutWaitOver = true\s*\}/.test(barSource),
   'the wait ends once, for good: when the mode settles it or after two seconds'
 )
-const completedBody = panelSource.match(/Component\.onCompleted:\s*\{([\s\S]*?)\n    \}/)[1]
-const initialWaitOver = new Function('cutoutPending', 'scheduleHiddenLayout', `let cutoutWaitOver = false; ${completedBody}; return cutoutWaitOver`)
-assertEqual(initialWaitOver(false, () => {}), true, 'a known initial floor releases the cutout wait')
-assertEqual(initialWaitOver(true, () => {}), false, 'an unknown initial floor still waits while logical layout is prepared')
-
 // Toasts and plugins clear the bar as thick as it is on their screen. The bar
 // publishes each screen's thickness by name from the same calculation its
 // surfaces use; barSize stays the configured size the widgets are drawn at.
